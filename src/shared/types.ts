@@ -37,6 +37,7 @@ export interface ActivityItem {
   url: string
   unread: boolean
   updatedAt: string
+  subjectState?: string // for state_change reasons: 'merged' | 'closed' | 'reopened' | ...
   latestComment?: {
     author: User
     body: string

@@ -22,6 +22,17 @@ export function relativeAge(iso: string): string {
   return `${Math.floor(h / 24)}d`
 }
 
+export function ReviewersCell({ pr }: { pr: PullRequest }) {
+  if (pr.reviewers.length === 0) return <span className="muted">—</span>
+  return (
+    <span className="reviewer-chips">
+      {pr.reviewers.map((r) => (
+        <span key={r.login} className="reviewer-chip">@{r.login}</span>
+      ))}
+    </span>
+  )
+}
+
 export function PrTitleCell({ pr }: { pr: PullRequest }) {
   return (
     <button className="pr-link" onClick={() => api.openExternal(pr.url)}>
@@ -36,13 +47,14 @@ export function NeedsReviewTable({ items }: { items: PullRequest[] }) {
   return (
     <table className="pr-table">
       <thead>
-        <tr><th>PR</th><th>Author</th><th>Checks</th><th>Age</th></tr>
+        <tr><th>PR</th><th>Author</th><th>Reviewers</th><th>Checks</th><th>Age</th></tr>
       </thead>
       <tbody>
         {items.map((pr) => (
           <tr key={pr.id}>
             <td><PrTitleCell pr={pr} /></td>
             <td>{pr.author.login}</td>
+            <td><ReviewersCell pr={pr} /></td>
             <td><ChecksCell pr={pr} /></td>
             <td><AgeCell pr={pr} /></td>
           </tr>

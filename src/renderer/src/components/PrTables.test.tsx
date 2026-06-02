@@ -30,6 +30,17 @@ describe('NeedsReviewTable', () => {
     await userEvent.click(screen.getByText('Fix nav focus trap'))
     expect(window.api.openExternal).toHaveBeenCalledWith('https://gh/88')
   })
+
+  it('lists requested reviewers as chips', () => {
+    render(<NeedsReviewTable items={[pr({ reviewers: [{ login: 'me', avatarUrl: '' }, { login: 'bob', avatarUrl: '' }] })]} />)
+    expect(screen.getByText('@me')).toBeInTheDocument()
+    expect(screen.getByText('@bob')).toBeInTheDocument()
+  })
+
+  it('shows a dash when there are no reviewers', () => {
+    render(<NeedsReviewTable items={[pr({ reviewers: [] })]} />)
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
 })
 
 describe('MyPullRequestsTable', () => {
@@ -37,6 +48,7 @@ describe('MyPullRequestsTable', () => {
     render(<MyPullRequestsTable items={[pr()]} />)
     expect(screen.getByText(/1 failing/i)).toBeInTheDocument()
     expect(screen.getByText(/changes requested/i)).toBeInTheDocument()
+    expect(screen.getByText('@me')).toBeInTheDocument()
   })
 
   it('renders an empty state with no rows', () => {

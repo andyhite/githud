@@ -37,6 +37,30 @@ describe('normalizeActivity', () => {
     expect(item.latestComment).toEqual({ author: { login: 'asmith', avatarUrl: 'av' }, body: 'please fix', createdAt: '2026-06-02T00:00:00Z' })
   })
 
+  it('drops the comment for non-comment reasons when it is just the subject body', () => {
+    const t = thread({ reason: 'subscribed', subject: { ...thread().subject, latest_comment_url: thread().subject.url } })
+    const comments = new Map<string, ResolvedComment>([
+      ['t1', { author: { login: 'asmith', avatarUrl: 'av' }, body: 'the PR description', createdAt: '2026-06-02T00:00:00Z' }]
+    ])
+    const [item] = normalizeActivity([t], comments)
+    expect(item.latestComment).toBeUndefined()
+  })
+
+  it('keeps the comment author for mentions even when it points at the subject body', () => {
+    const t = thread({ reason: 'mention', subject: { ...thread().subject, latest_comment_url: thread().subject.url } })
+    const comments = new Map<string, ResolvedComment>([
+      ['t1', { author: { login: 'alice', avatarUrl: 'av' }, body: 'hey @me take a look', createdAt: '2026-06-02T00:00:00Z' }]
+    ])
+    const [item] = normalizeActivity([t], comments)
+    expect(item.latestComment?.author.login).toBe('alice')
+  })
+
+  it('attaches a resolved subject state when provided', () => {
+    const states = new Map<string, string>([['t1', 'merged']])
+    const [item] = normalizeActivity([thread()], new Map(), states)
+    expect(item.subjectState).toBe('merged')
+  })
+
   it('builds an issue html url for Issue subjects', () => {
     const [item] = normalizeActivity([thread({ subject: { ...thread().subject, type: 'Issue', url: 'https://api.github.com/repos/o/web/issues/42' } })], new Map())
     expect(item.subjectType).toBe('Issue')

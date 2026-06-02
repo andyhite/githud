@@ -1,5 +1,5 @@
 import { PullRequest } from '@shared/types'
-import { ChecksCell, AgeCell, PrTitleCell } from './NeedsReviewTable'
+import { ChecksCell, AgeCell, PrTitleCell, ReviewersCell } from './NeedsReviewTable'
 
 function StatusCell({ pr }: { pr: PullRequest }) {
   if (pr.reviewState === 'changes_requested') return <span className="warn">⟳ changes requested</span>
@@ -16,13 +16,14 @@ export function MyPullRequestsTable({ items }: { items: PullRequest[] }) {
   return (
     <table className="pr-table">
       <thead>
-        <tr><th>PR</th><th>Status</th><th>Checks</th><th>Age</th></tr>
+        <tr><th>PR</th><th>Status</th><th>Reviewers</th><th>Checks</th><th>Age</th></tr>
       </thead>
       <tbody>
         {items.map((pr) => (
           <tr key={pr.id}>
             <td><PrTitleCell pr={pr} /></td>
             <td><StatusCell pr={pr} /></td>
+            <td><ReviewersCell pr={pr} /></td>
             <td><ChecksCell pr={pr} /></td>
             <td><AgeCell pr={pr} /></td>
           </tr>

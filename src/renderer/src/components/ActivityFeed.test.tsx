@@ -16,17 +16,25 @@ function item(over: Partial<ActivityItem> = {}): ActivityItem {
 beforeEach(() => { window.api = { openExternal: vi.fn() } as any })
 
 describe('ActivityFeed', () => {
-  it('renders the full comment body and a reason badge', () => {
+  it('shows who acted, what happened, and the subject — not the comment body', () => {
     render(<ActivityFeed items={[item()]} />)
-    expect(screen.getByText(/please also handle the browser-chrome case/i)).toBeInTheDocument()
-    expect(screen.getByText(/mention/i)).toBeInTheDocument()
+    expect(screen.getByText('asmith')).toBeInTheDocument()
+    expect(screen.getByText(/mentioned you/i)).toBeInTheDocument()
+    expect(screen.getByText('Fix nav focus trap')).toBeInTheDocument()
     expect(screen.getByText(/o\/web #88/)).toBeInTheDocument()
+    expect(screen.queryByText(/please also handle the browser-chrome case/i)).not.toBeInTheDocument()
   })
 
   it('opens the thread on click', async () => {
     render(<ActivityFeed items={[item()]} />)
     await userEvent.click(screen.getByText(/fix nav focus trap/i))
     expect(window.api.openExternal).toHaveBeenCalledWith('https://gh/88')
+  })
+
+  it('shows the resolved subject state instead of "changed state"', () => {
+    render(<ActivityFeed items={[item({ id: 't3', reason: 'state_change', latestComment: undefined, subjectState: 'merged', title: 'Add token gate' })]} />)
+    expect(screen.getByText('merged')).toBeInTheDocument()
+    expect(screen.queryByText(/changed state/i)).not.toBeInTheDocument()
   })
 
   it('renders an empty state', () => {

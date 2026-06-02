@@ -4,11 +4,13 @@ import { DASHBOARD_QUERY, NEEDS_REVIEW_QUERY, MY_PRS_QUERY } from './github/quer
 import { normalizePullRequests } from './github/normalize-prs'
 import { fetchNotifications, shouldPollNotifications } from './github/notifications'
 import { CommentCache, enrichThreads } from './github/enrich'
+import { StateCache, enrichStates } from './github/enrich-state'
 import { normalizeActivity } from './github/normalize-activity'
 import { filterActivity } from './github/filter-activity'
 
 export class Poller {
   private commentCache = new CommentCache()
+  private stateCache = new StateCache()
   private etag: string | undefined
   private lastNotificationsFetch: number | null = null
   private notificationsPollIntervalMs = 60_000
@@ -37,11 +39,12 @@ export class Poller {
       this.notificationsPollIntervalMs = result.pollIntervalMs
       this.etag = result.etag
       if (!result.notModified) {
-        const comments = await enrichThreads(result.threads, {
-          cache: this.commentCache,
-          request: (url: string) => this.octokit.request(url as any)
-        })
-        activity = normalizeActivity(result.threads, comments).slice(0, 50)
+        const request = (url: string) => this.octokit.request(url as any)
+        const [comments, states] = await Promise.all([
+          enrichThreads(result.threads, { cache: this.commentCache, request }),
+          enrichStates(result.threads, { cache: this.stateCache, request })
+        ])
+        activity = normalizeActivity(result.threads, comments, states).slice(0, 50)
         this.cachedActivity = activity
       }
     }
