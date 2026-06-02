@@ -19,8 +19,9 @@ function deriveReview(reviews: any[]): { state: PullRequest['reviewState']; appr
   // Keep only the latest review per author, ignoring pure COMMENTED reviews.
   const latestByAuthor = new Map<string, string>()
   for (const r of reviews) {
-    if (r.state === 'COMMENTED' || r.state === 'PENDING' || r.state === 'DISMISSED') continue
     const login = r.author?.login ?? 'unknown'
+    if (r.state === 'DISMISSED') { latestByAuthor.delete(login); continue }
+    if (r.state === 'COMMENTED' || r.state === 'PENDING') continue
     latestByAuthor.set(login, r.state) // later entries overwrite earlier -> "last" wins
   }
   const states = [...latestByAuthor.values()]
@@ -33,6 +34,7 @@ function deriveReview(reviews: any[]): { state: PullRequest['reviewState']; appr
 function summarizeChecks(rollup: any): ChecksSummary {
   if (!rollup) return { state: 'none', passed: 0, failed: 0, total: 0 }
   const nodes: any[] = rollup.contexts?.nodes ?? []
+  const total = nodes.length
   let passed = 0
   let failed = 0
   for (const n of nodes) {
@@ -45,11 +47,12 @@ function summarizeChecks(rollup: any): ChecksSummary {
     }
   }
   const rollupState = (rollup.state ?? '').toUpperCase()
-  let state: ChecksSummary['state'] = 'none'
+  let state: ChecksSummary['state']
   if (rollupState === 'SUCCESS') state = 'success'
   else if (rollupState === 'FAILURE' || rollupState === 'ERROR') state = 'failure'
   else if (rollupState === 'PENDING' || rollupState === 'EXPECTED') state = 'pending'
-  return { state, passed, failed, total: nodes.length }
+  else state = failed > 0 ? 'failure' : passed > 0 && passed === total ? 'success' : 'pending'
+  return { state, passed, failed, total }
 }
 
 export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRequest[] {

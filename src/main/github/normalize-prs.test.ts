@@ -104,4 +104,28 @@ describe('normalizePullRequests', () => {
     expect(normalizePullRequests([fresh], { now, staleThresholdMs: staleMs })[0].isStale).toBe(false)
     expect(normalizePullRequests([stale], { now, staleThresholdMs: staleMs })[0].isStale).toBe(true)
   })
+
+  it('treats a dismissed approval as no active vote', () => {
+    const node = prNode({
+      reviews: { nodes: [
+        { state: 'APPROVED', author: { login: 'a', avatarUrl: '' } },
+        { state: 'DISMISSED', author: { login: 'a', avatarUrl: '' } }
+      ] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.reviewState).toBe('none')
+    expect(pr.approvals).toBe(0)
+  })
+
+  it('does not report state none when a rollup exists with an unrecognized state', () => {
+    const node = prNode({
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'STALE',
+        contexts: { nodes: [{ __typename: 'CheckRun', conclusion: 'SUCCESS' }] }
+      } } }] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.checks.state).not.toBe('none')
+    expect(pr.checks.state).toBe('success')
+  })
 })
