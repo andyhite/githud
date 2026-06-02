@@ -4,6 +4,7 @@ import { DashboardSnapshot, Settings, AuthStatus } from '@shared/types'
 import { hasToken, loadToken, saveToken, clearToken } from './token-store'
 import { loadSettings, saveSettings } from './settings-store'
 import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
+import { markRead, markAllRead } from './event-store'
 import { createClient, validateToken } from './github/client'
 import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
@@ -83,7 +84,7 @@ async function doPoll(): Promise<DashboardSnapshot> {
       : {
           fetchedAt: new Date().toISOString(),
           viewer: { login: viewerLogin ?? '', avatarUrl: '' },
-          needsReview: [], myPullRequests: [], activity: [],
+          needsReview: [], myPullRequests: [], events: [],
           rateLimit: { remaining: 0, resetAt: '' },
           error: err?.message ?? 'Refresh failed'
         }
@@ -134,6 +135,9 @@ function registerIpc(): void {
   ipcMain.handle('openExternal', (_e, url: string) => {
     if (isSafeExternalUrl(url)) return shell.openExternal(url)
   })
+
+  ipcMain.handle('markRead', (_e, id: string) => markRead(id))
+  ipcMain.handle('markAllRead', () => markAllRead())
 }
 
 app.whenReady().then(async () => {
