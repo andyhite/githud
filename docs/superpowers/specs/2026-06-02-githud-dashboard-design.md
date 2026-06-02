@@ -46,11 +46,12 @@ the layout:
 |---|---|
 | PRs requiring my review | **Needs my review** table |
 | My open PRs (as author) | **My open PRs** table |
-| Comment feed on PRs I review/author | **Activity** rail |
+| Comment / activity feed | **Activity** rail, sourced from the GitHub Notifications API (everything relevant to me, not just PRs I author/review) |
 | My PRs with failing checks | Red `Checks` cell in **My open PRs** + a count badge in the top bar |
-| @mentions inbox | Merged into the **Activity** rail (mention items styled distinctly) |
+| @mentions inbox | Mention items in the **Activity** rail, distinguished by a `mention` reason badge |
 | Review status on my PRs | `Status` column in **My open PRs** (approvals / changes requested / mergeable) |
 | Stale PR alerts | Amber `Age` cell + ⚠ marker on rows past the stale threshold |
+| Hide noisy bots / authors | Author denylist + "hide all bots" toggle, applied to the Activity feed |
 
 **Stale threshold:** a PR is "stale" if it has had no activity (no new commit,
 review, or comment) for **2 days**. (Constant, easily tweakable in code.)
@@ -86,10 +87,14 @@ A standard resizable window. Single screen, no in-app routing.
     (amber + ⚠ when stale).
   - **My open PRs:** columns `PR`, `Status` (approvals / changes requested /
     mergeable), `Reviewers`, `Checks`, `Age`.
-- **Right rail (≈40%):** the **Activity** feed — chronological list of comment
-  and mention events, each showing avatar, author, context (`repo #num`),
-  relative time, and the full comment body (wraps, not truncated). Mentions are
-  visually distinguished from plain comments.
+- **Right rail (≈40%):** the **Activity** feed — a chronological list of
+  notification threads relevant to me (regardless of whether I author or review
+  the PR). Each row shows: the latest comment author's avatar + name, a **reason
+  badge** (mention / comment / review requested / CI activity / …), the context
+  (`repo #num` + title), an **unread** dot, relative time, and the full body of
+  the latest comment (wraps, not truncated). Threads are collapsed to one row
+  each (latest message shown). Authors on the denylist — and all bots when "hide
+  bots" is on — are filtered out entirely.
 - **Interaction:** clicking any PR row or activity item opens that PR/comment on
   github.com in the default browser (`shell.openExternal`). Empty tables show a
   friendly empty state.
@@ -117,7 +122,8 @@ renderer.
   - `onSnapshot(cb)` — subscribe to pushed snapshot updates.
   - `getAuthStatus(): Promise<{ hasToken: boolean; login?: string }>`.
   - `saveToken(token): Promise<{ ok: boolean; login?: string; error?: string }>`.
-  - `getSettings()/saveSettings()` — stale threshold, notification toggle.
+  - `getSettings()/saveSettings()` — stale threshold, notification toggle,
+    `excludedAuthors: string[]`, `hideBots: boolean`.
 - Context isolation **on**, node integration **off**, sandbox on.
 
 ### 3. Renderer (React dashboard)
@@ -132,7 +138,9 @@ renderer.
 ### Data flow
 ```
 poll timer / manual refresh (main)
-  → GraphQL query (Octokit)
+  → GraphQL query (PR tables)  +  REST notifications (activity, conditional/304)
+  → enrich notifications (resolve latest comment bodies, cached)
+  → filter activity (denylist + hide-bots)
   → normalize → DashboardSnapshot
   → diff vs previous snapshot → fire notifications
   → cache to disk + push over IPC
@@ -145,7 +153,8 @@ poll timer / manual refresh (main)
   **electron-builder** (local build only).
 - **React + TypeScript** renderer.
 - **TanStack Query** for renderer data/polling state.
-- **@octokit/graphql** for the GitHub GraphQL API v4, used in the main process.
+- **Octokit** in the main process: **@octokit/graphql** for the GraphQL v4 API
+  (PR tables) and **@octokit/rest** for the REST Notifications API (activity feed).
 - **Electron `safeStorage`** for encrypting the PAT at rest (no native keychain
   dependency); ciphertext stored in a file under `app.getPath('userData')`.
 - **Electron `Notification`** for native desktop notifications.
@@ -162,7 +171,7 @@ interface DashboardSnapshot {
   viewer: { login: string; avatarUrl: string };
   needsReview: PullRequest[];   // PRs where I'm a requested reviewer, not yet reviewed
   myPullRequests: PullRequest[];// PRs I authored, open
-  activity: ActivityItem[];     // comments + mentions on PRs I author/review, newest first
+  activity: ActivityItem[];     // notification threads relevant to me, newest first, post-filter
   rateLimit: { remaining: number; resetAt: string };
   error?: string;               // populated when a poll fails; UI shows last-good data + banner
 }
@@ -182,9 +191,19 @@ interface PullRequest {
 }
 
 interface ActivityItem {
-  id: string; type: 'comment' | 'review_comment' | 'mention';
-  pr: { repo: string; number: number; title: string; url: string };
-  author: User; body: string; url: string; createdAt: string;
+  id: string;                   // notification thread id
+  reason: 'mention' | 'team_mention' | 'comment' | 'review_requested'
+        | 'ci_activity' | 'assign' | 'author' | 'state_change' | 'subscribed' | string;
+  subjectType: 'PullRequest' | 'Issue' | 'Commit' | string;
+  repo: string;                 // "owner/name"
+  number?: number;              // PR/issue number (parsed from subject url)
+  title: string;                // subject title
+  url: string;                  // html url to open in browser
+  unread: boolean;
+  updatedAt: string;            // thread updated_at (sort key, newest first)
+  latestComment?: {             // resolved from latest_comment_url; absent for some reasons (e.g. ci_activity)
+    author: User; body: string; createdAt: string;
+  };
 }
 
 interface User { login: string; avatarUrl: string; }
@@ -198,22 +217,35 @@ interface User { login: string; avatarUrl: string; }
 - For each returned PR, the same query requests nested `reviews`, `reviewRequests`,
   `commits.last.statusCheckRollup`, and `mergeable` so reviewers/status/checks
   come back in one round trip.
-- **Activity feed:** for the union of PRs in both lists, fetch recent
-  `comments` and `reviewThreads.comments` (last N each, e.g. 10), merge, sort by
-  `createdAt` desc, cap the feed (e.g. 50 items). Mentions are detected by
-  scanning comment bodies for `@<viewer.login>` and tagging those items as
-  `type: 'mention'` (also surfaced from the same comment data — no separate
-  endpoint needed in v1).
-- One aggregated request per poll where possible (GraphQL aliases); the
+- One aggregated GraphQL request per poll where possible (aliases); the
   `rateLimit` block is requested alongside to monitor headroom. At 30s polling a
   single-user app stays far under the 5000 points/hour budget.
+
+**Activity feed — via the REST Notifications API** (`@octokit/rest` /
+`octokit.request` in the main process):
+- `GET /notifications` with `participating=false` (everything relevant to me)
+  and an incremental `since` cursor. Conditional requests (ETag / `If-Modified-Since`)
+  are used so unchanged polls return `304` and **don't** consume rate limit.
+- Each thread carries `reason`, `subject` (type, title, url, `latest_comment_url`),
+  `unread`, `repository`, and `updated_at`.
+- **Enrichment:** resolve `subject.latest_comment_url` to get the latest comment's
+  author, body, and timestamp. Only fetch for threads that are **new or whose
+  `updated_at` changed** since the last poll; cache resolved bodies keyed by
+  `latest_comment_url`. Threads without a resolvable comment (e.g. `ci_activity`)
+  keep `latestComment` undefined and render from the subject alone.
+- **Filtering (in main, before snapshot/notifications):** drop items whose latest
+  comment author is on the user's denylist, and — when "hide bots" is enabled —
+  drop authors whose login matches `*[bot]` or whose account `type` is `Bot`.
+- Sort by `updated_at` desc, cap the feed (e.g. 50 items after filtering).
 
 ## Authentication & Token Storage
 
 - On first launch (or whenever no valid token is stored), the renderer shows a
-  **`<TokenSetup>`** screen explaining which PAT scopes are needed (`repo` +
-  `read:org` for a classic token, or equivalent fine-grained read permissions)
-  with a link to GitHub's token-creation page.
+  **`<TokenSetup>`** screen explaining which PAT scopes are needed — for a
+  classic token: `repo` (PR/check data on private repos), `read:org`, and
+  `notifications` (the Notifications API); or equivalent fine-grained read
+  permissions including **Notifications: read** — with a link to GitHub's
+  token-creation page.
 - The token is sent to main via `saveToken`, which validates it with a
   lightweight `viewer { login }` query. On success it encrypts the token with
   `safeStorage.encryptString` and writes the ciphertext to
@@ -226,11 +258,15 @@ interface User { login: string; avatarUrl: string; }
 ## Polling & Notifications
 
 - A timer in main fires every 30s (configurable constant); manual refresh and
-  app-focus also trigger a poll.
+  app-focus also trigger a poll. The GraphQL PR query runs every poll; the REST
+  notifications fetch additionally honors GitHub's **`X-Poll-Interval`** header
+  (often ~60s) — if the last notifications fetch was more recent than that
+  interval, the poll reuses the cached activity rather than re-requesting.
 - After each successful poll, main diffs the new snapshot against the previous
   to fire **native notifications** for:
   - A PR newly appearing in **needs-my-review**.
-  - A new **activity item** (comment / mention) since last snapshot.
+  - A new (or newly-updated) **activity item** since the last snapshot — using
+    the post-filter feed, so denylisted/bot authors never notify.
   - One of **my PRs** transitioning into a failing-checks or changes-requested
     state.
 - Notifications are coalesced (e.g. "3 new comments") to avoid spam, can be
@@ -254,9 +290,14 @@ interface User { login: string; avatarUrl: string; }
 ## Testing Strategy
 
 - **Unit (Vitest), main process:**
-  - GraphQL response → `DashboardSnapshot` normalizer (fixtures of real-shaped
-    GraphQL payloads → expected snapshot; covers reviewState, checks rollup,
-    mergeable, staleness derivation, mention detection).
+  - GraphQL response → PR-table normalizer (fixtures of real-shaped GraphQL
+    payloads → expected `PullRequest[]`; covers reviewState, checks rollup,
+    mergeable, staleness derivation).
+  - Notifications → `ActivityItem[]` normalizer + **enrichment** (thread payload
+    + resolved comment → activity item; cache-hit path skips re-fetch).
+  - **Activity filtering** (denylist match + `*[bot]`/type-`Bot` detection;
+    case-insensitive logins; ensures filtered authors are excluded from both feed
+    and notifications).
   - Snapshot **diff → notifications** logic (given prev/next snapshots, assert the
     correct notification set, including "no notify on first poll" and
     coalescing).
@@ -278,12 +319,17 @@ githud/
     main/
       index.ts            # app/window lifecycle, IPC registration
       github/
-        client.ts         # Octokit GraphQL client factory
-        queries.ts        # GraphQL query strings
-        normalize.ts      # GraphQL → DashboardSnapshot  (unit tested)
-      poller.ts           # timer + refresh orchestration
-      notifications.ts    # snapshot diff → Notification  (unit tested)
-      token-store.ts      # safeStorage encrypt/decrypt   (unit tested)
+        client.ts         # Octokit graphql + rest client factory
+        queries.ts        # GraphQL query strings (PR tables)
+        normalize-prs.ts  # GraphQL → PullRequest[]        (unit tested)
+        notifications.ts  # REST fetch (conditional/ETag) + X-Poll-Interval
+        enrich.ts         # resolve latest_comment_url → body, with cache (unit tested)
+        normalize-activity.ts # threads + comments → ActivityItem[]  (unit tested)
+        filter-activity.ts# denylist + hide-bots                     (unit tested)
+      poller.ts           # timer + refresh orchestration → DashboardSnapshot
+      notifier.ts         # snapshot diff → native Notification       (unit tested)
+      token-store.ts      # safeStorage encrypt/decrypt               (unit tested)
+      settings-store.ts   # stale threshold, notif toggle, denylist, hideBots
       snapshot-cache.ts   # disk cache of last snapshot
     preload/
       index.ts            # contextBridge window.api
@@ -297,6 +343,7 @@ githud/
         MyPullRequestsTable.tsx
         ActivityFeed.tsx
         TokenSetup.tsx
+        Settings.tsx        # token, stale threshold, author denylist, hide-bots
       hooks/useDashboard.ts
     shared/
       types.ts            # DashboardSnapshot & friends (imported by all layers)
@@ -305,7 +352,8 @@ githud/
 ## Future (explicitly deferred)
 
 - Inline actions (approve / comment / merge from the app).
-- Configurable watch lists and filters.
+- Configurable per-repo watch lists (author/bot filtering ships in v1; repo
+  scoping does not).
 - GitHub Enterprise / multi-account.
 - Tray icon + launch-at-login (deferred from earlier discussion; standard window
   for v1).
