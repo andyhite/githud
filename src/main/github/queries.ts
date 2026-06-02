@@ -13,11 +13,15 @@ const PR_FIELDS = `
     nodes { requestedReviewer { ... on User { login avatarUrl } } }
   }
   reviews(last: 50) {
-    nodes { state author { login avatarUrl } }
+    nodes { id state author { login avatarUrl } submittedAt url }
+  }
+  comments(last: 20) {
+    nodes { id author { login avatarUrl } createdAt url bodyText }
   }
   commits(last: 1) {
     nodes {
       commit {
+        oid
         statusCheckRollup {
           state
           contexts(first: 100) {
