@@ -13,7 +13,9 @@ const api: GithudApi = {
   saveToken: (token: string) => ipcRenderer.invoke('saveToken', token),
   getSettings: () => ipcRenderer.invoke('getSettings'),
   saveSettings: (settings: Settings) => ipcRenderer.invoke('saveSettings', settings),
-  openExternal: (url: string) => ipcRenderer.invoke('openExternal', url)
+  openExternal: (url: string) => ipcRenderer.invoke('openExternal', url),
+  markRead: (id: string) => ipcRenderer.invoke('markRead', id),
+  markAllRead: () => ipcRenderer.invoke('markAllRead')
 }
 
 contextBridge.exposeInMainWorld('api', api)
