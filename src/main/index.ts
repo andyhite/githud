@@ -7,6 +7,7 @@ import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { createClient, validateToken } from './github/client'
 import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
+import { isSafeExternalUrl } from './safe-url'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -15,6 +16,13 @@ let poller: Poller | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 let lastSnapshot: DashboardSnapshot | null = null
 let viewerLogin: string | undefined
+let inFlightPoll: Promise<DashboardSnapshot> | null = null
+
+function sendSnapshot(snap: DashboardSnapshot): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('snapshot', snap)
+  }
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -35,7 +43,8 @@ function createWindow(): void {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  mainWindow.on('focus', () => { void runPoll() })
+  mainWindow.on('closed', () => { mainWindow = null })
+  mainWindow.on('focus', () => { if (hasToken()) void runPoll() })
 }
 
 function ensurePoller(): boolean {
@@ -50,12 +59,12 @@ function fireNotifications(prev: DashboardSnapshot | null, next: DashboardSnapsh
   if (!settings.notificationsEnabled || !Notification.isSupported()) return
   for (const spec of diffSnapshots(prev, next)) {
     const n = new Notification({ title: spec.title, body: spec.body })
-    if (spec.url) n.on('click', () => shell.openExternal(spec.url!))
+    if (spec.url && isSafeExternalUrl(spec.url)) n.on('click', () => shell.openExternal(spec.url!))
     n.show()
   }
 }
 
-async function runPoll(): Promise<DashboardSnapshot> {
+async function doPoll(): Promise<DashboardSnapshot> {
   if (!ensurePoller()) {
     throw new Error('No token configured')
   }
@@ -65,7 +74,7 @@ async function runPoll(): Promise<DashboardSnapshot> {
     fireNotifications(lastSnapshot, snapshot, settings)
     lastSnapshot = snapshot
     cacheSnapshot(snapshot)
-    mainWindow?.webContents.send('snapshot', snapshot)
+    sendSnapshot(snapshot)
     return snapshot
   } catch (err: any) {
     // Keep last good data; surface the error on a degraded snapshot.
@@ -78,9 +87,15 @@ async function runPoll(): Promise<DashboardSnapshot> {
           rateLimit: { remaining: 0, resetAt: '' },
           error: err?.message ?? 'Refresh failed'
         }
-    mainWindow?.webContents.send('snapshot', degraded)
+    sendSnapshot(degraded)
     return degraded
   }
+}
+
+function runPoll(): Promise<DashboardSnapshot> {
+  if (inFlightPoll) return inFlightPoll
+  inFlightPoll = doPoll().finally(() => { inFlightPoll = null })
+  return inFlightPoll
 }
 
 function startPolling(): void {
@@ -116,7 +131,9 @@ function registerIpc(): void {
     return saved
   })
 
-  ipcMain.handle('openExternal', (_e, url: string) => shell.openExternal(url))
+  ipcMain.handle('openExternal', (_e, url: string) => {
+    if (isSafeExternalUrl(url)) return shell.openExternal(url)
+  })
 }
 
 app.whenReady().then(async () => {
