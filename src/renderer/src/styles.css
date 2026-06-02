@@ -1,0 +1,77 @@
+:root {
+  --bg: #0d1117; --panel: #161b22; --border: #30363d; --line: #21262d;
+  --text: #c9d1d9; --bright: #e6edf3; --muted: #8b949e;
+  --blue: #58a6ff; --green: #3fb950; --red: #f85149; --amber: #d29922;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.app { display: flex; flex-direction: column; height: 100vh; }
+.loading { padding: 40px; color: var(--muted); }
+
+.top-bar { display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+  background: var(--panel); border-bottom: 1px solid var(--border); }
+.top-bar .brand { font-weight: 700; color: var(--bright); }
+.top-bar .summary { color: var(--muted); }
+.top-bar .spacer { flex: 1; }
+.top-bar button { background: transparent; border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.badge { border-radius: 10px; padding: 1px 8px; font-size: 11px; }
+.badge.bad { background: #f8514922; color: var(--red); }
+.badge.warn { background: #d2992222; color: var(--amber); }
+.refreshed { color: var(--muted); font-size: 11px; }
+
+.layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px;
+  padding: 12px; overflow: hidden; flex: 1; }
+.tables { display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+.rail { overflow-y: auto; }
+.panel { background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; }
+.panel h2 { font-size: 13px; color: var(--bright); margin: 0 0 8px;
+  display: flex; align-items: center; gap: 8px; }
+.count { background: #1f6feb33; color: var(--blue); border-radius: 10px;
+  padding: 0 7px; font-size: 11px; }
+.empty { color: var(--muted); padding: 8px 2px; }
+
+.pr-table { width: 100%; border-collapse: collapse; }
+.pr-table th { text-align: left; color: var(--muted); font-weight: 500;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .04em;
+  padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.pr-table td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.pr-link { display: flex; flex-direction: column; align-items: flex-start;
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left; }
+.pr-title { color: var(--bright); }
+.pr-repo { color: var(--muted); font-size: 11px; }
+.good { color: var(--green); } .bad { color: var(--red); }
+.warn { color: var(--amber); } .muted { color: var(--muted); }
+
+.activity-feed { display: flex; flex-direction: column; gap: 8px; }
+.activity-item { width: 100%; text-align: left; cursor: pointer;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; }
+.activity-item.unread { border-left: 2px solid var(--blue); }
+.activity-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 4px; font-size: 11px; }
+.activity-author { color: var(--bright); font-weight: 600; }
+.reason-badge { background: #1f6feb22; color: var(--blue); border-radius: 8px; padding: 0 6px; }
+.activity-ctx { color: var(--blue); } .activity-time { color: var(--muted); margin-left: auto; }
+.activity-title { color: var(--bright); margin-bottom: 4px; }
+.activity-body { color: var(--text); white-space: pre-wrap; }
+
+.token-setup { max-width: 560px; margin: 60px auto; padding: 0 20px; }
+.token-setup input { width: 100%; padding: 8px; margin: 6px 0 12px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; }
+.token-setup button, .settings-panel button { background: var(--blue); color: #fff;
+  border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; }
+.token-setup button:disabled { opacity: .5; cursor: default; }
+.error { color: var(--red); }
+
+.settings-overlay { position: fixed; inset: 0; background: #000a;
+  display: flex; align-items: center; justify-content: center; }
+.settings-panel { background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px; width: 420px; display: flex; flex-direction: column; gap: 10px; }
+.settings-panel label { display: block; }
+.settings-panel input[type=text], .settings-panel input[type=number] {
+  width: 100%; padding: 6px; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; }
+.settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.settings-actions button:first-child { background: transparent; border: 1px solid var(--border); color: var(--text); }
