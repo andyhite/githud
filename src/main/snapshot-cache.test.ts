@@ -14,7 +14,7 @@ const sample: DashboardSnapshot = {
   viewer: { login: 'me', avatarUrl: 'a' },
   needsReview: [],
   myPullRequests: [],
-  activity: [],
+  events: [],
   rateLimit: { remaining: 5000, resetAt: '2026-06-02T01:00:00Z' }
 }
 
