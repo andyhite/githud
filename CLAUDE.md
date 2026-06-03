@@ -34,8 +34,9 @@ loop) — see the AI section below.
 src/
   shared/types.ts          # DashboardSnapshot (now includes `history: DailyMetric[]`), PullRequest, FeedEvent, Settings (now includes `chartsCollapsed: boolean`), GithudApi, DailyMetric, + AI types (TriageVerdict/DigestResult/ReviewResult) — the contract
   shared/size.ts           # sizeBucket(diffstat) -> S/M/L/XL  (pure; used by both the size column and the AI triage)
+  shared/poll-schedule.ts  # nextPollDelay(rateLimit, now) + formatInterval  (pure, tested; adaptive poll backoff, used by the main loop AND the TopBar interval display)
   main/
-    index.ts               # window + IPC handlers + 30s poll loop + native notifications + navigation guard + tray/dock badge + login item
+    index.ts               # window + IPC handlers + adaptive poll loop (self-scheduling setTimeout via nextPollDelay; ~30s base, backs off as the GraphQL budget runs low) + native notifications + navigation guard + tray/dock badge + login item
     poller.ts              # Poller.refresh(settings) -> DashboardSnapshot (orchestrates github/*); `get client()` exposes the Octokit to AI handlers
     notifier.ts            # diffSnapshots(prev, next, {notifyKinds, now, quietHours}) -> NotificationSpec[]  (pure; per-kind filter + quiet hours; caps at 5)
     event-store.ts         # FeedEvent merge/read-state + PRState persistence (pure helpers + fs glue)
@@ -69,7 +70,7 @@ src/
     hooks/useDigest.ts     # subscribes to main's 'digest' push (brief on-focus delta digest)
     hooks/selection.ts     # moveSelection (pure) — j/k keyboard nav
     components/
-      TopBar.tsx           # summary + filter box + rate-limit/stale badges (ticking) + refresh/settings
+      TopBar.tsx           # summary + filter box + rate-limit/stale badges (ticking) + adaptive poll-interval indicator (↻ Ns/m, amber when throttled) + refresh/settings
       NeedsReviewTable.tsx # table + RowActions kebab (⋮) menu + TriageChip + the shared cell components
       MyPullRequestsTable.tsx, ActivityFeed.tsx, TokenSetup.tsx, Settings.tsx, CommandPalette.tsx (⌘K), Digest.tsx, DigestPane.tsx (brief on-focus delta, above activity), ReviewPanel.tsx, icons.tsx
       TrendStrip.tsx, Sparkline.tsx, MiniBars.tsx   # trend KPI strip above the tables
