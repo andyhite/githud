@@ -62,10 +62,18 @@ export function deriveEvents(
     }
 
     if (pr.source === 'review') {
+      // `?? []` tolerates persisted PRState from before this field existed
+      // (loaded from disk on the first poll after upgrade) — otherwise the
+      // whole poll throws on `.map` of undefined.
+      const lower = (logins: string[]) => logins.map((l) => l.toLowerCase())
+      const viewer = viewerLogin.toLowerCase()
       const reAdded =
-        viewerLogin &&
-        pr.reviewRequestedLogins.map((l) => l.toLowerCase()).includes(viewerLogin.toLowerCase()) &&
-        !before.reviewRequestedLogins.map((l) => l.toLowerCase()).includes(viewerLogin.toLowerCase())
+        !!viewerLogin &&
+        // Only infer a re-request when prev actually tracked the field; persisted
+        // state from before this field existed (undefined) has no baseline to diff.
+        before.reviewRequestedLogins !== undefined &&
+        lower(pr.reviewRequestedLogins ?? []).includes(viewer) &&
+        !lower(before.reviewRequestedLogins).includes(viewer)
       if (reAdded) {
         events.push({ ...base, id: `review_re_requested:${pr.id}`, kind: 'review_re_requested', url: pr.url, createdAt: now, unread: true })
       }

@@ -99,6 +99,16 @@ describe('deriveEvents', () => {
     expect(e).toMatchObject({ id: 'review_re_requested:X', kind: 'review_re_requested' })
   })
 
+  it('tolerates persisted prev state from before reviewRequestedLogins existed', () => {
+    // pr-state.json written by a pre-M9 build has no reviewRequestedLogins field:
+    // must not throw, and must NOT emit a spurious re-request (no prior baseline).
+    const before = pr({ id: 'X', source: 'review' })
+    delete (before as { reviewRequestedLogins?: string[] }).reviewRequestedLogins
+    const after = pr({ id: 'X', source: 'review', reviewRequestedLogins: ['me'] })
+    expect(() => deriveEvents([before], [after], 'me', NOW)).not.toThrow()
+    expect(deriveEvents([before], [after], 'me', NOW).map((e) => e.kind)).not.toContain('review_re_requested')
+  })
+
   it('emits changes_addressed when a PR you blocked gets new commits', () => {
     const before = pr({
       id: 'Y', source: 'review', headOid: 'oid1',
