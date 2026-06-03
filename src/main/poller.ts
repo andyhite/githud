@@ -26,7 +26,7 @@ export class Poller {
 
     const needsReview = normalizePullRequests(reviewNodes, { now, staleThresholdMs })
     const myPullRequests = normalizePullRequests(mineNodes, { now, staleThresholdMs })
-    const viewer = { login: data.viewer.login, avatarUrl: data.viewer.avatarUrl }
+    const viewer = { login: data.viewer?.login ?? '', avatarUrl: data.viewer?.avatarUrl ?? '' }
 
     const nextStates: PRState[] = [
       ...mineNodes.map((n) => toPrState(n, 'mine')),

@@ -45,7 +45,7 @@ export function deriveEvents(
     const seenComments = new Set(before.comments.map((c) => c.id))
     for (const c of pr.comments) {
       if (seenComments.has(c.id)) continue
-      const isMention = c.bodyText.toLowerCase().includes(mention)
+      const isMention = !!viewerLogin && c.bodyText.toLowerCase().includes(mention)
       events.push({ ...base, id: `comment:${c.id}`, kind: isMention ? 'mention' : 'comment', url: c.url, actor: { login: c.authorLogin, avatarUrl: c.authorAvatarUrl }, createdAt: c.createdAt || now, unread: true })
     }
 

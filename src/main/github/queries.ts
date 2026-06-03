@@ -15,6 +15,8 @@ const PR_FIELDS = `
   reviews(last: 50) {
     nodes { id state author { login avatarUrl } submittedAt url }
   }
+  # Event derivation diffs these windows against the previous poll. A comment or
+  # review pushed out of the window before a poll observes it is not surfaced.
   comments(last: 20) {
     nodes { id author { login avatarUrl } createdAt url bodyText }
   }
