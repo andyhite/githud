@@ -10,7 +10,7 @@ import { hasAiKey, saveAiKey as storeAiKey, loadAiKey } from './ai/key-store'
 import { validateAiKey, createAiClient } from './ai/client'
 import { loadCache, saveCache, cacheKey } from './ai/cache'
 import { triagePr } from './ai/triage'
-import { buildDigest } from './ai/digest'
+import { buildDigest, digestFingerprint } from './ai/digest'
 import { reviewPr } from './ai/review'
 import { fetchPrDiff } from './github/fetch-diff'
 import type { TriageVerdict, ReviewResult } from '@shared/types'
@@ -313,7 +313,16 @@ function registerIpc(): void {
     const key = loadAiKey()
     if (!key) throw new Error('No AI key configured')
     if (!lastSnapshot) throw new Error('No data yet')
-    return buildDigest(createAiClient(key), lastSnapshot, new Date().toISOString())
+    // Reuse the last digest while the data it evaluates is unchanged (polls that
+    // only bump fetchedAt don't invalidate it).
+    const fp = digestFingerprint(lastSnapshot)
+    const cache = loadCache()
+    const cached = cache['digest'] as { fingerprint: string; result: import('@shared/types').DigestResult } | undefined
+    if (cached && cached.fingerprint === fp) return cached.result
+    const result = await buildDigest(createAiClient(key), lastSnapshot, new Date().toISOString())
+    cache['digest'] = { fingerprint: fp, result }
+    saveCache(cache)
+    return result
   })
   ipcMain.handle('getReview', async (_e, prId: string): Promise<ReviewResult> => {
     const key = loadAiKey()
