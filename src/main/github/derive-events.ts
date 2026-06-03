@@ -1,6 +1,11 @@
 import { FeedEvent, FeedEventKind } from '@shared/types'
 import { PRState } from './pr-state'
 
+function latestViewerReviewState(reviews: PRState['reviews'], viewerLogin: string): string | undefined {
+  const mine = reviews.filter((r) => r.authorLogin.toLowerCase() === viewerLogin.toLowerCase())
+  return mine.length ? mine[mine.length - 1].state : undefined
+}
+
 const REVIEW_KIND: Record<string, FeedEventKind> = {
   APPROVED: 'approved',
   CHANGES_REQUESTED: 'changes_requested',
@@ -49,8 +54,26 @@ export function deriveEvents(
       events.push({ ...base, id: `comment:${c.id}`, kind: isMention ? 'mention' : 'comment', url: c.url, actor: { login: c.authorLogin, avatarUrl: c.authorAvatarUrl }, createdAt: c.createdAt || now, unread: true })
     }
 
+    // CI transition: distinguish a regression (was green) from a first failure.
     if (pr.ciState !== before.ciState && (pr.ciState === 'failure' || pr.ciState === 'success')) {
-      events.push({ ...base, id: `ci:${pr.id}:${pr.headOid}:${pr.ciState}`, kind: pr.ciState === 'failure' ? 'ci_failed' : 'ci_succeeded', url: pr.url, createdAt: now, unread: true })
+      const regressed = pr.ciState === 'failure' && before.ciState === 'success'
+      const kind: FeedEventKind = pr.ciState === 'failure' ? (regressed ? 'ci_regressed' : 'ci_failed') : 'ci_succeeded'
+      events.push({ ...base, id: `ci:${pr.id}:${pr.headOid}:${pr.ciState}`, kind, url: pr.url, createdAt: now, unread: true })
+    }
+
+    if (pr.source === 'review') {
+      const reAdded =
+        viewerLogin &&
+        pr.reviewRequestedLogins.map((l) => l.toLowerCase()).includes(viewerLogin.toLowerCase()) &&
+        !before.reviewRequestedLogins.map((l) => l.toLowerCase()).includes(viewerLogin.toLowerCase())
+      if (reAdded) {
+        events.push({ ...base, id: `review_re_requested:${pr.id}`, kind: 'review_re_requested', url: pr.url, createdAt: now, unread: true })
+      }
+
+      const blockedBefore = latestViewerReviewState(before.reviews, viewerLogin) === 'CHANGES_REQUESTED'
+      if (blockedBefore && pr.headOid !== before.headOid) {
+        events.push({ ...base, id: `changes_addressed:${pr.id}:${pr.headOid}`, kind: 'changes_addressed', url: pr.url, createdAt: now, unread: true })
+      }
     }
   }
 

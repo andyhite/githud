@@ -12,6 +12,10 @@ import { loadHidden, saveHidden, resolveHidden } from './hidden-store'
 export class Poller {
   constructor(private octokit: Octokit) {}
 
+  get client(): Octokit {
+    return this.octokit
+  }
+
   async refresh(settings: Settings): Promise<DashboardSnapshot> {
     const now = Date.now()
     const nowIso = new Date(now).toISOString()
@@ -81,7 +85,8 @@ export class Poller {
 
     const { hiddenIds, kept } = resolveHidden(
       [...needsReview, ...myPullRequests].map((p) => ({ id: p.id, updatedAt: p.updatedAt })),
-      loadHidden()
+      loadHidden(),
+      now
     )
     saveHidden(kept)
 

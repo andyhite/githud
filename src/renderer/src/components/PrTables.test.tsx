@@ -8,6 +8,7 @@ import type { PullRequest } from '@shared/types'
 function pr(over: Partial<PullRequest> = {}): PullRequest {
   return {
     id: 'p1', number: 88, title: 'Fix nav focus trap', url: 'https://gh/88', repo: 'o/web',
+    branch: 'fix/nav-focus-trap',
     author: { login: 'asmith', avatarUrl: '' }, reviewers: [{ login: 'me', avatarUrl: '' }],
     reviewState: 'changes_requested', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'failure', passed: 11, failed: 1, total: 12 },
@@ -15,7 +16,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
   }
 }
 
-beforeEach(() => { window.api = { openExternal: vi.fn() } as any })
+beforeEach(() => { window.api = { openExternal: vi.fn(), copyToClipboard: vi.fn() } as any })
 
 describe('NeedsReviewTable', () => {
   it('renders an empty state with no rows', () => {
@@ -40,6 +41,12 @@ describe('NeedsReviewTable', () => {
   it('shows a dash when there are no reviewers', () => {
     render(<NeedsReviewTable items={[pr({ reviewers: [] })]} />)
     expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  it('copies the PR link', async () => {
+    render(<NeedsReviewTable items={[pr({ url: 'https://gh/88', branch: 'feat/x' })]} />)
+    await userEvent.click(screen.getByTitle('Copy PR link'))
+    expect(window.api.copyToClipboard).toHaveBeenCalledWith('https://gh/88')
   })
 })
 

@@ -8,7 +8,7 @@ function pr(over: Partial<PRState> = {}): PRState {
   return {
     id: 'PR1', number: 88, title: 'Fix nav', url: 'https://gh/88', repo: 'o/web',
     authorLogin: 'me', source: 'mine', ciState: 'none', headOid: 'oid1',
-    reviews: [], comments: [], ...over
+    reviews: [], comments: [], reviewRequestedLogins: [], ...over
   }
 }
 
@@ -85,6 +85,38 @@ describe('deriveEvents', () => {
     const prev = [pr({ id: 'GONE', source: 'mine' })]
     // empty fallenOut map = REST resolution failed / still open; must stay silent
     expect(deriveEvents(prev, [], 'me', NOW)).toEqual([])
+  })
+
+  it('emits ci_regressed when CI goes green -> red', () => {
+    const [e] = deriveEvents([pr({ ciState: 'success' })], [pr({ ciState: 'failure' })], 'me', NOW)
+    expect(e).toMatchObject({ kind: 'ci_regressed' })
+  })
+
+  it('emits review_re_requested when the viewer is re-added as a reviewer', () => {
+    const before = pr({ id: 'X', source: 'review', reviewRequestedLogins: [] })
+    const after = pr({ id: 'X', source: 'review', reviewRequestedLogins: ['me'] })
+    const [e] = deriveEvents([before], [after], 'me', NOW)
+    expect(e).toMatchObject({ id: 'review_re_requested:X', kind: 'review_re_requested' })
+  })
+
+  it('emits changes_addressed when a PR you blocked gets new commits', () => {
+    const before = pr({
+      id: 'Y', source: 'review', headOid: 'oid1',
+      reviews: [{ id: 'r1', state: 'CHANGES_REQUESTED', authorLogin: 'me', authorAvatarUrl: '', url: 'u', submittedAt: NOW }]
+    })
+    const after = pr({
+      id: 'Y', source: 'review', headOid: 'oid2',
+      reviews: [{ id: 'r1', state: 'CHANGES_REQUESTED', authorLogin: 'me', authorAvatarUrl: '', url: 'u', submittedAt: NOW }]
+    })
+    const kinds = deriveEvents([before], [after], 'me', NOW).map((e) => e.kind)
+    expect(kinds).toContain('changes_addressed')
+  })
+
+  it('does not emit changes_addressed when headOid advances without a prior viewer change-request', () => {
+    const before = pr({ id: 'Z', source: 'review', headOid: 'oid1', reviews: [{ id: 'r1', state: 'APPROVED', authorLogin: 'me', authorAvatarUrl: '', url: 'u', submittedAt: NOW }] })
+    const after = pr({ id: 'Z', source: 'review', headOid: 'oid2', reviews: [{ id: 'r1', state: 'APPROVED', authorLogin: 'me', authorAvatarUrl: '', url: 'u', submittedAt: NOW }] })
+    const kinds = deriveEvents([before], [after], 'me', NOW).map((e) => e.kind)
+    expect(kinds).not.toContain('changes_addressed')
   })
 
   it('falls back to `now` when a review/comment has no source timestamp', () => {

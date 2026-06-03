@@ -13,6 +13,7 @@ function prNode(overrides: any = {}) {
     isDraft: false,
     updatedAt: '2026-06-01T20:00:00Z',
     mergeable: 'MERGEABLE',
+    headRefName: 'feature/x',
     repository: { nameWithOwner: 'o/api' },
     author: { login: 'jdoe', avatarUrl: 'av' },
     reviewRequests: { nodes: [{ requestedReviewer: { login: 'me', avatarUrl: 'av-me' } }] },
@@ -127,6 +128,11 @@ describe('normalizePullRequests', () => {
     const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
     expect(pr.checks.state).not.toBe('none')
     expect(pr.checks.state).toBe('success')
+  })
+
+  it('maps the head branch name', () => {
+    const [pr] = normalizePullRequests([prNode()], { now, staleThresholdMs: staleMs })
+    expect(pr.branch).toBe('feature/x')
   })
 
   it('returns an empty array for an empty, null, or null-containing node list', () => {

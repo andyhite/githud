@@ -65,6 +65,7 @@ export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRe
       title: n.title,
       url: n.url,
       repo: n.repository?.nameWithOwner ?? '',
+      branch: n.headRefName ?? '',
       author: user(n.author),
       reviewers: (n.reviewRequests?.nodes ?? [])
         .map((rr: any) => rr.requestedReviewer)

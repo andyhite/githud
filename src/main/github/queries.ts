@@ -4,6 +4,7 @@ const PR_FIELDS = `
   number
   title
   url
+  headRefName
   isDraft
   updatedAt
   mergeable

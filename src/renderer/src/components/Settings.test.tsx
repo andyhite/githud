@@ -7,7 +7,9 @@ import { DEFAULT_SETTINGS } from '@shared/types'
 beforeEach(() => {
   window.api = {
     getSettings: vi.fn().mockResolvedValue(DEFAULT_SETTINGS),
-    saveSettings: vi.fn().mockImplementation((s) => Promise.resolve(s))
+    saveSettings: vi.fn().mockImplementation((s) => Promise.resolve(s)),
+    getAiStatus: vi.fn().mockResolvedValue({ hasKey: false }),
+    saveAiKey: vi.fn().mockResolvedValue({ ok: true })
   } as any
 })
 
@@ -25,6 +27,27 @@ describe('Settings', () => {
     await userEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(window.api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ hideBots: false, excludedAuthors: ['noisybot', 'anotherbot'] })
+    )
+  })
+
+  it('saves launch-at-login', async () => {
+    render(<Settings onClose={() => {}} />)
+    await userEvent.click(await screen.findByLabelText(/launch at login/i))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(window.api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ launchAtLogin: true }))
+  })
+
+  it('toggles a notify-kind and enables quiet hours', async () => {
+    render(<Settings onClose={() => {}} />)
+    const approvals = await screen.findByLabelText(/approvals/i)
+    await userEvent.click(approvals) // 'approved' is off by default in DEFAULT_SETTINGS.notifyKinds; click adds it
+    await userEvent.click(screen.getByLabelText(/quiet hours/i))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(window.api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notifyKinds: expect.arrayContaining(['approved']),
+        quietHours: { start: '18:00', end: '09:00' }
+      })
     )
   })
 })

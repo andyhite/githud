@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { FeedEvent, DashboardSnapshot, PullRequest } from '@shared/types'
+import { FeedEvent, DashboardSnapshot, PullRequest, TriageVerdict } from '@shared/types'
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
 import { TopBar } from './components/TopBar'
@@ -9,6 +9,12 @@ import { MyPullRequestsTable } from './components/MyPullRequestsTable'
 import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
+import { Digest } from './components/Digest'
+import { ReviewPanel } from './components/ReviewPanel'
+import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
+import { matchesPr, matchesEvent } from './components/match'
+import { moveSelection } from './hooks/selection'
+import { CommandPalette, Command } from './components/CommandPalette'
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
@@ -38,10 +44,21 @@ function Dashboard({
   onCloseSettings: () => void
 }) {
   const { data: snapshot, refetch, isFetching } = useDashboard()
+  const [query, setQuery] = useState('')
   // Before any snapshot (cold start, no disk cache yet) data is undefined.
   // Distinguish that from a genuinely-empty result so we don't flash the
   // cheerful "all caught up" empty states before the first data arrives.
   const loading = snapshot === undefined
+
+  const [triageSort, setTriageSort] = useState<import('@shared/types').TriageSort>('oldest-first')
+  useEffect(() => { api.getSettings().then((s) => setTriageSort(s.triageSort)) }, [])
+
+  const [aiOn, setAiOn] = useState(false)
+  const [showDigest, setShowDigest] = useState(false)
+  const [reviewId, setReviewId] = useState<string | null>(null)
+  const [verdicts, setVerdicts] = useState<Record<string, TriageVerdict>>({})
+  const requested = useRef<Set<string>>(new Set())
+  useEffect(() => { api.getAiStatus().then((s) => setAiOn(s.hasKey)) }, [])
 
   const qc = useQueryClient()
   const applyEvents = (events: FeedEvent[]) =>
@@ -53,10 +70,46 @@ function Dashboard({
   const applySnapshot = (snap: DashboardSnapshot) => qc.setQueryData(['dashboard'], snap)
   const onHide = (pr: PullRequest) => { void api.hidePr(pr.id, pr.updatedAt).then(applySnapshot) }
   const onUnhide = (id: string) => { void api.unhidePr(id).then(applySnapshot) }
+  const onSnooze = (pr: PullRequest, until: string) => { void api.snoozePr(pr.id, pr.updatedAt, until).then(applySnapshot) }
   const hiddenIds = snapshot?.hiddenPrIds ?? []
   const hiddenSet = new Set(hiddenIds)
   const visibleNeedsReview = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id)).length
   const visibleMine = (snapshot?.myPullRequests ?? []).filter((p) => !hiddenSet.has(p.id)).length
+
+  const [selected, setSelected] = useState(-1)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)), triageSort, verdicts)
+  const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen(true); return }
+      if (e.key === 'j') setSelected((i) => moveSelection(i, 'down', visibleReview.length))
+      if (e.key === 'k') setSelected((i) => moveSelection(i, 'up', visibleReview.length))
+      if (e.key === 'Enter' && selected >= 0 && visibleReview[selected]) api.openExternal(visibleReview[selected].url)
+      if (e.key === 'e' && selected >= 0 && visibleReview[selected]) onHide(visibleReview[selected])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [visibleReview, selected])
+
+  useEffect(() => {
+    if (!aiOn) return
+    for (const pr of visibleReview) {
+      if (requested.current.has(pr.id)) continue
+      requested.current.add(pr.id)
+      api.getTriage(pr.id).then((v) => { if (v) setVerdicts((m) => ({ ...m, [pr.id]: v })) })
+    }
+  }, [aiOn, visibleReview])
+
+  const commands: Command[] = [
+    { id: 'refresh', label: 'Refresh now', run: () => refetch() },
+    { id: 'settings', label: 'Open settings', run: onOpenSettings },
+    { id: 'readall', label: 'Mark all activity read', run: onReadAll },
+    { id: 'digest', label: 'Catch me up', run: () => setShowDigest(true) }
+  ]
 
   return (
     <div className="app">
@@ -65,26 +118,34 @@ function Dashboard({
         onRefresh={() => refetch()}
         onOpenSettings={onOpenSettings}
         isFetching={isFetching}
+        query={query}
+        onQueryChange={setQuery}
       />
       <main className="layout">
         <section className="tables">
           <div className="panel">
             <h2>Needs my review <span className="count">{visibleNeedsReview}</span></h2>
             <NeedsReviewTable
-              items={snapshot?.needsReview ?? []}
+              items={reviewItems}
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
+              onSnooze={onSnooze}
+              selectedId={visibleReview[selected]?.id}
               loading={loading}
+              verdicts={verdicts}
+              aiOn={aiOn}
+              onReview={setReviewId}
             />
           </div>
           <div className="panel">
             <h2>My open PRs <span className="count">{visibleMine}</span></h2>
             <MyPullRequestsTable
-              items={snapshot?.myPullRequests ?? []}
+              items={sortMyPrs((snapshot?.myPullRequests ?? []).filter((p) => matchesPr(p, query)))}
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
+              onSnooze={onSnooze}
               loading={loading}
             />
           </div>
@@ -93,12 +154,16 @@ function Dashboard({
           <h2>
             Activity <span className="count">{unread}</span>
             <span className="spacer" />
+            {aiOn && <button className="link-button" onClick={() => setShowDigest(true)}>catch me up</button>}
             {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
           </h2>
-          <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
+          <ActivityFeed events={(snapshot?.events ?? []).filter((e) => matchesEvent(e, query))} onRead={onRead} loading={loading} />
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}
+      {showDigest && <Digest onClose={() => setShowDigest(false)} />}
+      {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
+      {reviewId && <ReviewPanel prId={reviewId} onClose={() => setReviewId(null)} />}
     </div>
   )
 }

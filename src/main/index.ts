@@ -1,20 +1,30 @@
-import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron'
 import { join } from 'path'
 import { DashboardSnapshot, Settings, AuthStatus } from '@shared/types'
 import { hasToken, loadToken, saveToken, clearToken } from './token-store'
 import { loadSettings, saveSettings } from './settings-store'
 import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { markRead, markAllRead } from './event-store'
-import { hidePr as storeHidePr, unhidePr as storeUnhidePr, loadHidden, resolveHidden } from './hidden-store'
+import { hidePr as storeHidePr, unhidePr as storeUnhidePr, snoozePr as storeSnoozePr, loadHidden, resolveHidden } from './hidden-store'
+import { hasAiKey, saveAiKey as storeAiKey, loadAiKey } from './ai/key-store'
+import { validateAiKey, createAiClient } from './ai/client'
+import { loadCache, saveCache, cacheKey } from './ai/cache'
+import { triagePr } from './ai/triage'
+import { buildDigest } from './ai/digest'
+import { reviewPr } from './ai/review'
+import { fetchPrDiff } from './github/fetch-diff'
+import type { TriageVerdict, ReviewResult } from '@shared/types'
 import { createClient, validateToken } from './github/client'
 import { filterEvents } from './github/filter-events'
 import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
 import { isSafeExternalUrl } from './safe-url'
+import { visibleNeedsReviewCount, dockBadge } from './tray-label'
 
 const POLL_INTERVAL_MS = 30_000
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 let poller: Poller | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 let lastSnapshot: DashboardSnapshot | null = null
@@ -30,6 +40,7 @@ function sendSnapshot(snap: DashboardSnapshot): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('snapshot', snap)
   }
+  updateTray(snap)
 }
 
 function createWindow(): void {
@@ -75,6 +86,34 @@ function createWindow(): void {
   mainWindow.on('focus', () => { if (hasToken()) void runPoll() })
 }
 
+function applyLoginItem(settings: Settings): void {
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin })
+  }
+}
+
+function updateTray(snap: DashboardSnapshot | null): void {
+  const count = snap ? visibleNeedsReviewCount(snap) : 0
+  if (tray) tray.setTitle(count > 0 ? ` ${count}` : '')
+  if (process.platform === 'darwin' && app.dock) app.dock.setBadge(dockBadge(count))
+}
+
+function createTray(): void {
+  if (tray) return
+  // Empty image + text title is the lightest cross-platform tray on macOS,
+  // avoiding a bundled icon asset; the count rides in the title.
+  tray = new Tray(nativeImage.createEmpty())
+  tray.setToolTip('githud')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open githud', click: () => { if (mainWindow) mainWindow.show(); else createWindow() } },
+      { label: 'Refresh now', click: () => { if (hasToken()) void runPoll() } },
+      { type: 'separator' },
+      { label: 'Quit', click: () => app.quit() }
+    ])
+  )
+}
+
 function ensurePoller(): boolean {
   if (poller) return true
   const token = loadToken()
@@ -85,7 +124,12 @@ function ensurePoller(): boolean {
 
 function fireNotifications(prev: DashboardSnapshot | null, next: DashboardSnapshot, settings: Settings): void {
   if (!settings.notificationsEnabled || !Notification.isSupported()) return
-  for (const spec of diffSnapshots(prev, next)) {
+  const specs = diffSnapshots(prev, next, {
+    notifyKinds: settings.notifyKinds,
+    now: new Date(),
+    quietHours: settings.quietHours
+  })
+  for (const spec of specs) {
     const n = new Notification({ title: spec.title, body: spec.body })
     if (spec.url && isSafeExternalUrl(spec.url)) n.on('click', () => shell.openExternal(spec.url!))
     n.show()
@@ -155,7 +199,8 @@ function recomputeHidden(): DashboardSnapshot | null {
       id: p.id,
       updatedAt: p.updatedAt
     })),
-    loadHidden()
+    loadHidden(),
+    Date.now()
   )
   const next = { ...lastSnapshot, hiddenPrIds: hiddenIds }
   lastSnapshot = next
@@ -192,6 +237,7 @@ function registerIpc(): void {
   ipcMain.handle('getSettings', (): Settings => loadSettings())
   ipcMain.handle('saveSettings', (_e, settings: Settings): Settings => {
     const saved = saveSettings(settings)
+    applyLoginItem(saved)
     void runPoll() // re-apply filters immediately
     return saved
   })
@@ -218,12 +264,71 @@ function registerIpc(): void {
     storeUnhidePr(id)
     return recomputeHidden() ?? lastSnapshot
   })
+
+  ipcMain.handle('snoozePr', (_e, id: string, updatedAt: string, until: string) => {
+    storeSnoozePr(id, updatedAt, until)
+    return recomputeHidden() ?? lastSnapshot
+  })
+  ipcMain.handle('copyToClipboard', (_e, text: string) => { clipboard.writeText(String(text)) })
+  ipcMain.handle('getAiStatus', () => ({ hasKey: hasAiKey() }))
+  ipcMain.handle('saveAiKey', async (_e, key: string) => {
+    if (!(await validateAiKey(key))) return { ok: false, error: 'Anthropic rejected the key.' }
+    storeAiKey(key)
+    return { ok: true }
+  })
+  ipcMain.handle('getTriage', async (_e, prId: string): Promise<TriageVerdict | null> => {
+    const key = loadAiKey()
+    if (!key || !lastSnapshot) return null
+    // Triage is a needs-review affordance only (unlike getReview, which also
+    // covers your own PRs); a non-needs-review prId legitimately resolves to null.
+    const pr = lastSnapshot.needsReview.find((p) => p.id === prId)
+    if (!pr) return null
+    const headKey = pr.updatedAt // coarse head key; advances on new commits
+    const cache = loadCache()
+    const cached = cache[cacheKey('triage', prId, headKey)] as TriageVerdict | undefined
+    if (cached) return cached
+    if (!ensurePoller() || !poller) return null
+    try {
+      const diff = await fetchPrDiff(poller.client, pr.repo, pr.number)
+      const verdict = await triagePr(createAiClient(key), prId, headKey, pr.title, diff, new Date().toISOString())
+      cache[cacheKey('triage', prId, headKey)] = verdict
+      saveCache(cache)
+      return verdict
+    } catch {
+      return null
+    }
+  })
+  ipcMain.handle('getDigest', async () => {
+    const key = loadAiKey()
+    if (!key) throw new Error('No AI key configured')
+    if (!lastSnapshot) throw new Error('No data yet')
+    return buildDigest(createAiClient(key), lastSnapshot, new Date().toISOString())
+  })
+  ipcMain.handle('getReview', async (_e, prId: string): Promise<ReviewResult> => {
+    const key = loadAiKey()
+    if (!key) throw new Error('No AI key configured')
+    if (!lastSnapshot) throw new Error('No data yet')
+    const pr = [...lastSnapshot.needsReview, ...lastSnapshot.myPullRequests].find((p) => p.id === prId)
+    if (!pr) throw new Error('PR not found')
+    const headKey = pr.updatedAt
+    const cache = loadCache()
+    const cached = cache[cacheKey('review', prId, headKey)] as ReviewResult | undefined
+    if (cached) return cached
+    if (!ensurePoller() || !poller) throw new Error('No token configured')
+    const diff = await fetchPrDiff(poller.client, pr.repo, pr.number)
+    const result = await reviewPr(createAiClient(key), prId, headKey, pr.title, diff, new Date().toISOString())
+    cache[cacheKey('review', prId, headKey)] = result
+    saveCache(cache)
+    return result
+  })
 }
 
 app.whenReady().then(async () => {
   registerIpc()
   lastSnapshot = loadCachedSnapshot()
+  applyLoginItem(loadSettings())
   createWindow()
+  createTray()
 
   // If a token already exists, validate it (for viewer login) and start polling.
   const token = loadToken()
