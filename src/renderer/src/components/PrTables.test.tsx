@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NeedsReviewTable } from './NeedsReviewTable'
 import { MyPullRequestsTable } from './MyPullRequestsTable'
@@ -43,9 +43,10 @@ describe('NeedsReviewTable', () => {
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 
-  it('copies the PR link', async () => {
+  it('copies the PR link from the actions menu', async () => {
     render(<NeedsReviewTable items={[pr({ url: 'https://gh/88', branch: 'feat/x' })]} />)
-    await userEvent.click(screen.getByTitle('Copy PR link'))
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /copy pr link/i }))
     expect(window.api.copyToClipboard).toHaveBeenCalledWith('https://gh/88')
   })
 })
@@ -65,10 +66,11 @@ describe('MyPullRequestsTable', () => {
 })
 
 describe('hide / unhide', () => {
-  it('calls onHide with the PR when the hide button is clicked', async () => {
+  it('calls onHide with the PR when Hide is selected from the actions menu', async () => {
     const onHide = vi.fn()
     render(<NeedsReviewTable items={[pr({ id: 'p1' })]} hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /^hide$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^hide$/i }))
     expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
   })
 
@@ -81,21 +83,23 @@ describe('hide / unhide', () => {
     expect(screen.getByRole('button', { name: /show hidden \(1\)/i })).toBeInTheDocument()
   })
 
-  it('reveals hidden rows and unhides via the toggle', async () => {
+  it('reveals hidden rows and unhides via the actions menu', async () => {
     const visible = pr({ id: 'p1', title: 'Visible PR' })
     const hidden = pr({ id: 'p2', title: 'Hidden PR' })
     const onUnhide = vi.fn()
     render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} onHide={vi.fn()} onUnhide={onUnhide} />)
     await userEvent.click(screen.getByRole('button', { name: /show hidden \(1\)/i }))
-    expect(screen.getByText('Hidden PR')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /^unhide$/i }))
+    const hiddenRow = screen.getByText('Hidden PR').closest('tr')!
+    await userEvent.click(within(hiddenRow).getByRole('button', { name: /row actions/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^unhide$/i }))
     expect(onUnhide).toHaveBeenCalledWith('p2')
   })
 
   it('works for MyPullRequestsTable too', async () => {
     const onHide = vi.fn()
     render(<MyPullRequestsTable items={[pr({ id: 'm1' })]} hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /^hide$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^hide$/i }))
     expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
   })
 })

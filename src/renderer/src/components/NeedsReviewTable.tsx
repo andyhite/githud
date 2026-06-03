@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PullRequest, TriageVerdict } from '@shared/types'
 import { api } from '../api'
-import { computeSnoozeUntil, SnoozePreset } from './snooze'
+import { computeSnoozeUntil } from './snooze'
 
 export interface HideProps {
   hiddenIds?: string[]
@@ -10,37 +10,74 @@ export interface HideProps {
   onSnooze?: (pr: PullRequest, until: string) => void
 }
 
-export function HideCell({
+// All per-row actions collapsed into one kebab (⋮) menu so rows stay tight.
+export function RowActions({
   pr,
-  hidden,
+  isHidden,
+  aiOn,
   onHide,
-  onUnhide
+  onUnhide,
+  onSnooze,
+  onReview
 }: {
   pr: PullRequest
-  hidden: boolean
-  onHide?: (pr: PullRequest) => void
-  onUnhide?: (id: string) => void
-}) {
-  return hidden ? (
-    <button className="row-action" title="Unhide this PR" onClick={() => onUnhide?.(pr.id)}>
-      unhide
-    </button>
-  ) : (
-    <button className="row-action hide-action" title="Hide this PR" onClick={() => onHide?.(pr)}>
-      hide
-    </button>
-  )
-}
+  isHidden: boolean
+  aiOn?: boolean
+  onReview?: (id: string) => void
+} & HideProps) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
-export function SnoozeCell({ pr, onSnooze }: { pr: PullRequest; onSnooze?: (pr: PullRequest, until: string) => void }) {
-  if (!onSnooze) return null
-  const snooze = (preset: SnoozePreset) => onSnooze(pr, computeSnoozeUntil(new Date(), preset))
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onEsc)
+    }
+  }, [open])
+
+  const act = (fn: () => void) => { fn(); setOpen(false) }
+
   return (
-    <span className="snooze-actions">
-      <button className="row-action" title="Snooze 1 hour" onClick={() => snooze('1h')}>1h</button>
-      <button className="row-action" title="Snooze until tomorrow 9am" onClick={() => snooze('tomorrow')}>1d</button>
-      <button className="row-action" title="Snooze until Monday 9am" onClick={() => snooze('monday')}>wk</button>
-    </span>
+    <div className={`row-actions${open ? ' open' : ''}`} ref={ref}>
+      <button
+        className="row-action kebab"
+        title="Actions"
+        aria-label="Row actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        ⋮
+      </button>
+      {open && (
+        <div className="row-menu" role="menu">
+          {!isHidden && aiOn && onReview && (
+            <button role="menuitem" onClick={() => act(() => onReview(pr.id))}>Pre-review (AI)</button>
+          )}
+          <button role="menuitem" onClick={() => act(() => api.copyToClipboard(pr.url))}>Copy PR link</button>
+          <button role="menuitem" onClick={() => act(() => api.copyToClipboard(pr.branch))}>Copy branch name</button>
+          {!isHidden && onSnooze && (
+            <>
+              <button role="menuitem" onClick={() => act(() => onSnooze(pr, computeSnoozeUntil(new Date(), '1h')))}>Snooze 1 hour</button>
+              <button role="menuitem" onClick={() => act(() => onSnooze(pr, computeSnoozeUntil(new Date(), 'tomorrow')))}>Snooze until tomorrow</button>
+              <button role="menuitem" onClick={() => act(() => onSnooze(pr, computeSnoozeUntil(new Date(), 'monday')))}>Snooze until Monday</button>
+            </>
+          )}
+          {isHidden ? (
+            <button role="menuitem" onClick={() => act(() => onUnhide?.(pr.id))}>Unhide</button>
+          ) : (
+            <button role="menuitem" onClick={() => act(() => onHide?.(pr))}>Hide</button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -89,15 +126,6 @@ export function ReviewersCell({ pr }: { pr: PullRequest }) {
       {pr.reviewers.map((r) => (
         <span key={r.login} className="reviewer-chip">@{r.login}</span>
       ))}
-    </span>
-  )
-}
-
-export function CopyCell({ pr }: { pr: PullRequest }) {
-  return (
-    <span className="copy-actions">
-      <button className="row-action" title="Copy PR link" onClick={() => api.copyToClipboard(pr.url)}>link</button>
-      <button className="row-action" title="Copy branch name" onClick={() => api.copyToClipboard(pr.branch)}>branch</button>
     </span>
   )
 }
@@ -153,7 +181,7 @@ export function NeedsReviewTable({
       <td><ReviewersCell pr={pr} /></td>
       <td><ChecksCell pr={pr} /></td>
       <td><AgeCell pr={pr} /></td>
-      <td className="actions">{!isHidden && aiOn && onReview && <button className="row-action" title="AI pre-review" onClick={() => onReview(pr.id)}>review</button>}{!isHidden && <SnoozeCell pr={pr} onSnooze={onSnooze} />}<CopyCell pr={pr} /><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
+      <td className="actions"><RowActions pr={pr} isHidden={isHidden} aiOn={aiOn} onHide={onHide} onUnhide={onUnhide} onSnooze={onSnooze} onReview={onReview} /></td>
     </tr>
   )
 

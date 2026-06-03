@@ -83,12 +83,23 @@ body { margin: 0; background: var(--bg); color: var(--text);
   background: transparent; border: 1px solid transparent; color: var(--muted);
   border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer;
   opacity: 0; transition: opacity .12s, background .12s, color .12s, border-color .12s; }
-.pr-table tbody tr:hover .row-action { opacity: 1; }
+.pr-table tbody tr:hover .row-action,
+.pr-table .row-actions.open .row-action { opacity: 1; }
 .pr-table .row-action:hover { background: var(--bg); color: var(--bright); border-color: var(--border); }
 .pr-table tr.row-hidden td { opacity: .5; }
-.pr-table tr.row-hidden .row-action { opacity: 1; } /* unhide always visible on revealed rows */
-.snooze-actions { display: inline-flex; gap: 4px; margin-right: 6px; }
-.copy-actions { display: inline-flex; gap: 4px; margin-right: 6px; }
+.pr-table tr.row-hidden .row-action { opacity: 1; } /* actions always visible on revealed rows */
+
+/* Per-row kebab (⋮) menu — collapses all row actions into one control. */
+.row-actions { position: relative; display: inline-block; }
+.row-actions .kebab { font-size: 16px; padding: 2px 8px; }
+.row-menu { position: absolute; right: 0; top: 100%; margin-top: 2px; z-index: 20;
+  display: flex; flex-direction: column; min-width: 170px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 20px #0008; }
+.row-menu button { background: transparent; border: none; color: var(--text);
+  text-align: left; white-space: nowrap; padding: 6px 10px; border-radius: 6px;
+  font-size: 13px; cursor: pointer; transition: background .12s, color .12s; }
+.row-menu button:hover { background: var(--line); color: var(--bright); }
 .show-hidden {
   background: transparent; border: none; color: var(--muted);
   font-size: 12px; cursor: pointer; padding: 6px 2px; }
@@ -146,7 +157,7 @@ body { margin: 0; background: var(--bg); color: var(--text);
   border-radius: 10px; padding: 20px; width: 420px; display: flex; flex-direction: column; gap: 10px; }
 .settings-panel label { display: block; cursor: pointer; transition: color .12s; }
 .settings-panel label:hover { color: var(--bright); }
-.settings-panel input[type=text], .settings-panel input[type=number] {
+.settings-panel input[type=text], .settings-panel input[type=number], .settings-panel input[type=password] {
   width: 100%; padding: 6px; background: var(--bg); border: 1px solid var(--border);
   color: var(--text); border-radius: 6px; }
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
