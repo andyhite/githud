@@ -171,3 +171,10 @@ body { margin: 0; background: var(--bg); color: var(--text);
   color: var(--text); padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
 .palette-list button:hover { background: var(--line); color: var(--bright); }
 .pr-table tr.row-selected td { background: #58a6ff22; }
+
+.triage-chip { font-size: 11px; padding: 1px 7px; border-radius: 9px; margin-left: 8px; white-space: nowrap; }
+.triage-chip.triage-green { background: #3fb95022; color: var(--green); }
+.triage-chip.triage-blue { background: #58a6ff22; color: var(--blue); }
+.triage-chip.triage-amber { background: #d2992222; color: var(--amber); }
+.triage-chip.triage-purple { background: #a371f722; color: #a371f7; }
+.settings-panel select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px; }

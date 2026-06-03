@@ -137,6 +137,17 @@ export function Settings({ onClose }: { onClose: () => void }) {
           placeholder="dependabot[bot], some-user"
         />
 
+        <label htmlFor="triageSort">Needs-review order</label>
+        <select
+          id="triageSort"
+          value={settings.triageSort}
+          onChange={(e) => setSettings({ ...settings, triageSort: e.target.value as import('@shared/types').TriageSort })}
+        >
+          <option value="oldest-first">Oldest waiting first</option>
+          <option value="quick-first">Quick approves first (AI)</option>
+          <option value="risky-first">Likely-changes first (AI)</option>
+        </select>
+
         <label htmlFor="aikey">Anthropic API key {aiConfigured && <span className="muted">(configured)</span>}</label>
         <input
           id="aikey"

@@ -18,6 +18,12 @@ describe('sortNeedsReview', () => {
     const old = pr({ id: 'old', updatedAt: '2026-05-30T00:00:00Z' })
     expect(sortNeedsReview([recent, old]).map((p) => p.id)).toEqual(['old', 'recent'])
   })
+  it('orders by verdict when quick-first with verdicts supplied', () => {
+    const a = pr({ id: 'a', updatedAt: '2026-06-01T00:00:00Z' })
+    const b = pr({ id: 'b', updatedAt: '2026-06-02T00:00:00Z' })
+    const verdicts = { a: { label: 'big_effort' } as any, b: { label: 'quick_approve' } as any }
+    expect(sortNeedsReview([a, b], 'quick-first', verdicts).map((p) => p.id)).toEqual(['b', 'a'])
+  })
 })
 
 describe('sortMyPrs', () => {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PullRequest } from '@shared/types'
+import { PullRequest, TriageVerdict } from '@shared/types'
 import { api } from '../api'
 import { computeSnoozeUntil, SnoozePreset } from './snooze'
 
@@ -111,6 +111,20 @@ export function PrTitleCell({ pr }: { pr: PullRequest }) {
   )
 }
 
+const TRIAGE_META: Record<string, { cls: string; label: string }> = {
+  quick_approve: { cls: 'triage-green', label: 'quick approve' },
+  careful_read: { cls: 'triage-blue', label: 'careful read' },
+  likely_changes: { cls: 'triage-amber', label: 'likely changes' },
+  big_effort: { cls: 'triage-purple', label: 'big effort' }
+}
+
+export function TriageChip({ verdict }: { verdict?: TriageVerdict }) {
+  if (!verdict) return null
+  const m = TRIAGE_META[verdict.label]
+  if (!m) return null
+  return <span className={`triage-chip ${m.cls}`} title={`${verdict.rationale} — focus: ${verdict.focusHint}`}>{m.label}</span>
+}
+
 export function NeedsReviewTable({
   items,
   hiddenIds = [],
@@ -118,8 +132,9 @@ export function NeedsReviewTable({
   onUnhide,
   onSnooze,
   selectedId,
-  loading
-}: { items: PullRequest[]; loading?: boolean; selectedId?: string } & HideProps) {
+  loading,
+  verdicts
+}: { items: PullRequest[]; loading?: boolean; selectedId?: string; verdicts?: Record<string, TriageVerdict> } & HideProps) {
   const [showHidden, setShowHidden] = useState(false)
   const hiddenSet = new Set(hiddenIds)
   const visible = items.filter((pr) => !hiddenSet.has(pr.id))
@@ -131,7 +146,7 @@ export function NeedsReviewTable({
 
   const row = (pr: PullRequest, isHidden: boolean) => (
     <tr key={pr.id} className={[isHidden ? 'row-hidden' : '', pr.id === selectedId ? 'row-selected' : ''].filter(Boolean).join(' ') || undefined}>
-      <td><PrTitleCell pr={pr} /></td>
+      <td><PrTitleCell pr={pr} /><TriageChip verdict={verdicts?.[pr.id]} /></td>
       <td>{pr.author.login}</td>
       <td><ReviewersCell pr={pr} /></td>
       <td><ChecksCell pr={pr} /></td>

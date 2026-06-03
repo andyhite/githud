@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { FeedEvent, DashboardSnapshot, PullRequest } from '@shared/types'
+import { FeedEvent, DashboardSnapshot, PullRequest, TriageVerdict } from '@shared/types'
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
 import { TopBar } from './components/TopBar'
@@ -48,6 +48,14 @@ function Dashboard({
   // cheerful "all caught up" empty states before the first data arrives.
   const loading = snapshot === undefined
 
+  const [triageSort, setTriageSort] = useState<import('@shared/types').TriageSort>('oldest-first')
+  useEffect(() => { api.getSettings().then((s) => setTriageSort(s.triageSort)) }, [])
+
+  const [aiOn, setAiOn] = useState(false)
+  const [verdicts, setVerdicts] = useState<Record<string, TriageVerdict>>({})
+  const requested = useRef<Set<string>>(new Set())
+  useEffect(() => { api.getAiStatus().then((s) => setAiOn(s.hasKey)) }, [])
+
   const qc = useQueryClient()
   const applyEvents = (events: FeedEvent[]) =>
     qc.setQueryData<DashboardSnapshot | null>(['dashboard'], (old) => (old ? { ...old, events } : old))
@@ -66,7 +74,7 @@ function Dashboard({
 
   const [selected, setSelected] = useState(-1)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)))
+  const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)), triageSort, verdicts)
   const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
 
   useEffect(() => {
@@ -82,6 +90,15 @@ function Dashboard({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [visibleReview, selected])
+
+  useEffect(() => {
+    if (!aiOn) return
+    for (const pr of visibleReview) {
+      if (requested.current.has(pr.id)) continue
+      requested.current.add(pr.id)
+      api.getTriage(pr.id).then((v) => { if (v) setVerdicts((m) => ({ ...m, [pr.id]: v })) })
+    }
+  }, [aiOn, visibleReview])
 
   const commands: Command[] = [
     { id: 'refresh', label: 'Refresh now', run: () => refetch() },
@@ -111,6 +128,7 @@ function Dashboard({
               onSnooze={onSnooze}
               selectedId={visibleReview[selected]?.id}
               loading={loading}
+              verdicts={verdicts}
             />
           </div>
           <div className="panel">

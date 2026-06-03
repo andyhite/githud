@@ -12,6 +12,10 @@ import { loadHidden, saveHidden, resolveHidden } from './hidden-store'
 export class Poller {
   constructor(private octokit: Octokit) {}
 
+  get client(): Octokit {
+    return this.octokit
+  }
+
   async refresh(settings: Settings): Promise<DashboardSnapshot> {
     const now = Date.now()
     const nowIso = new Date(now).toISOString()

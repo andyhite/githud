@@ -7,7 +7,11 @@ import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { markRead, markAllRead } from './event-store'
 import { hidePr as storeHidePr, unhidePr as storeUnhidePr, snoozePr as storeSnoozePr, loadHidden, resolveHidden } from './hidden-store'
 import { hasAiKey, saveAiKey as storeAiKey, loadAiKey } from './ai/key-store'
-import { validateAiKey } from './ai/client'
+import { validateAiKey, createAiClient } from './ai/client'
+import { loadCache, saveCache, cacheKey } from './ai/cache'
+import { triagePr } from './ai/triage'
+import { fetchPrDiff } from './github/fetch-diff'
+import type { TriageVerdict } from '@shared/types'
 import { createClient, validateToken } from './github/client'
 import { filterEvents } from './github/filter-events'
 import { Poller } from './poller'
@@ -270,7 +274,26 @@ function registerIpc(): void {
     storeAiKey(key)
     return { ok: true }
   })
-  ipcMain.handle('getTriage', () => null)
+  ipcMain.handle('getTriage', async (_e, prId: string): Promise<TriageVerdict | null> => {
+    const key = loadAiKey()
+    if (!key || !lastSnapshot) return null
+    const pr = lastSnapshot.needsReview.find((p) => p.id === prId)
+    if (!pr) return null
+    const headKey = pr.updatedAt // coarse head key; advances on new commits
+    const cache = loadCache()
+    const cached = cache[cacheKey('triage', prId, headKey)] as TriageVerdict | undefined
+    if (cached) return cached
+    if (!ensurePoller() || !poller) return null
+    try {
+      const diff = await fetchPrDiff(poller.client, pr.repo, pr.number)
+      const verdict = await triagePr(createAiClient(key), prId, headKey, pr.title, diff, new Date().toISOString())
+      cache[cacheKey('triage', prId, headKey)] = verdict
+      saveCache(cache)
+      return verdict
+    } catch {
+      return null
+    }
+  })
   ipcMain.handle('getDigest', () => { throw new Error('not implemented') })
   ipcMain.handle('getReview', () => { throw new Error('not implemented') })
 }
