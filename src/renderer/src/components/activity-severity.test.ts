@@ -11,8 +11,11 @@ describe('severityForKind', () => {
     expect(severityForKind('approved')).toBe('success')
     expect(severityForKind('merged')).toBe('success')
   })
+  it('gives a direct mention its own high-signal severity', () => {
+    expect(severityForKind('mention')).toBe('mention')
+  })
   it('maps everything else to info', () => {
-    for (const k of ['comment', 'mention', 'review_commented', 'review_requested', 'closed'] as const) {
+    for (const k of ['comment', 'review_commented', 'review_requested', 'closed'] as const) {
       expect(severityForKind(k)).toBe('info')
     }
   })

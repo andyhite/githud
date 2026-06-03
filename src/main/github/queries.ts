@@ -12,11 +12,14 @@ const PR_FIELDS = `
   reviewRequests(first: 20) {
     nodes { requestedReviewer { ... on User { login avatarUrl } } }
   }
+  # Event derivation diffs these windows (reviews/comments) against the previous
+  # poll by id set-difference. The cap is per ~30s poll: a review or comment
+  # pushed out of its trailing window before a poll observes it is not surfaced.
+  # Deliberate v1 tradeoff — to make it robust, persist a per-PR last-seen
+  # timestamp and emit items newer than it instead of windowed set-difference.
   reviews(last: 50) {
     nodes { id state author { login avatarUrl } submittedAt url }
   }
-  # Event derivation diffs these windows against the previous poll. A comment or
-  # review pushed out of the window before a poll observes it is not surfaced.
   comments(last: 20) {
     nodes { id author { login avatarUrl } createdAt url bodyText }
   }

@@ -7,6 +7,7 @@ import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { markRead, markAllRead } from './event-store'
 import { hidePr as storeHidePr, unhidePr as storeUnhidePr, loadHidden, resolveHidden } from './hidden-store'
 import { createClient, validateToken } from './github/client'
+import { filterEvents } from './github/filter-events'
 import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
 import { isSafeExternalUrl } from './safe-url'
@@ -19,6 +20,11 @@ let timer: ReturnType<typeof setInterval> | null = null
 let lastSnapshot: DashboardSnapshot | null = null
 let viewerLogin: string | undefined
 let inFlightPoll: Promise<DashboardSnapshot> | null = null
+let rerunRequested = false
+// The notification baseline is gated on this flag, NOT on lastSnapshot===null:
+// lastSnapshot is pre-seeded from the disk cache for the renderer, so the first
+// live poll must be recognized explicitly to honor the "seed silently" contract.
+let baselineSeeded = false
 
 function sendSnapshot(snap: DashboardSnapshot): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -44,6 +50,26 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // Defense in depth: the only sanctioned path to the OS browser is the
+  // isSafeExternalUrl-gated openExternal IPC. Block in-window navigation and
+  // window.open so stray markup/links can't load remote content into this
+  // privileged window (which exposes the preload bridge) or spawn child windows.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    const current = mainWindow?.webContents.getURL()
+    try {
+      // Allow same-origin navigations (dev server HMR / client routing / file load).
+      if (current && new URL(url).origin === new URL(current).origin) return
+    } catch {
+      // unparseable — fall through to deny
+    }
+    e.preventDefault()
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
+  })
 
   mainWindow.on('closed', () => { mainWindow = null })
   mainWindow.on('focus', () => { if (hasToken()) void runPoll() })
@@ -73,7 +99,10 @@ async function doPoll(): Promise<DashboardSnapshot> {
   const settings = loadSettings()
   try {
     const snapshot = await poller!.refresh(settings)
-    fireNotifications(lastSnapshot, snapshot, settings)
+    // First successful poll only seeds the baseline; it intentionally fires
+    // nothing, even though lastSnapshot may be a non-null disk-cache seed.
+    fireNotifications(baselineSeeded ? lastSnapshot : null, snapshot, settings)
+    baselineSeeded = true
     lastSnapshot = snapshot
     cacheSnapshot(snapshot)
     sendSnapshot(snapshot)
@@ -95,8 +124,20 @@ async function doPoll(): Promise<DashboardSnapshot> {
 }
 
 function runPoll(): Promise<DashboardSnapshot> {
-  if (inFlightPoll) return inFlightPoll
-  inFlightPoll = doPoll().finally(() => { inFlightPoll = null })
+  // Coalesce concurrent callers, but if a poll is requested while one is in
+  // flight (e.g. saveSettings/focus), schedule exactly one fresh poll after it
+  // so the latest persisted settings are honored rather than silently dropped.
+  if (inFlightPoll) {
+    rerunRequested = true
+    return inFlightPoll
+  }
+  inFlightPoll = doPoll().finally(() => {
+    inFlightPoll = null
+    if (rerunRequested) {
+      rerunRequested = false
+      void runPoll()
+    }
+  })
   return inFlightPoll
 }
 
@@ -139,6 +180,11 @@ function registerIpc(): void {
     saveToken(token)
     viewerLogin = viewer.login
     poller = new Poller(createClient(token))
+    // New token = new data source (possibly a different account). Drop the old
+    // baseline so the first poll seeds silently instead of diffing across
+    // identities and firing a spurious notification burst.
+    lastSnapshot = null
+    baselineSeeded = false
     startPolling()
     return { ok: true, login: viewer.login }
   })
@@ -154,8 +200,15 @@ function registerIpc(): void {
     if (isSafeExternalUrl(url)) return shell.openExternal(url)
   })
 
-  ipcMain.handle('markRead', (_e, id: string) => markRead(id))
-  ipcMain.handle('markAllRead', () => markAllRead())
+  // The event store holds the full unfiltered set; the renderer only ever shows
+  // the filtered feed (poller.refresh applies the same filter). Filter here too
+  // so reading an event doesn't resurface hidden bot/excluded-author events.
+  const filterForUi = (events: ReturnType<typeof markRead>) => {
+    const { excludedAuthors, hideBots } = loadSettings()
+    return filterEvents(events, { excludedAuthors, hideBots })
+  }
+  ipcMain.handle('markRead', (_e, id: string) => filterForUi(markRead(id)))
+  ipcMain.handle('markAllRead', () => filterForUi(markAllRead()))
 
   ipcMain.handle('hidePr', (_e, id: string, updatedAt: string) => {
     storeHidePr(id, updatedAt)

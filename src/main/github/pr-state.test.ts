@@ -29,4 +29,15 @@ describe('toPrState', () => {
     expect(toPrState(node({ commits: { nodes: [{ commit: { oid: 'x', statusCheckRollup: { state: 'PENDING' } } }] } }), 'review').ciState).toBe('pending')
     expect(toPrState(node({ commits: { nodes: [] }, reviews: { nodes: [] }, comments: { nodes: [] } }), 'review')).toMatchObject({ ciState: 'none', headOid: '', reviews: [], comments: [] })
   })
+
+  it('skips null review/comment nodes (inaccessible items in a connection)', () => {
+    const s = toPrState(node({
+      reviews: { nodes: [null, { id: 'r1', state: 'APPROVED', author: { login: 'alice', avatarUrl: 'av-a' }, submittedAt: '', url: 'u' }] },
+      comments: { nodes: [{ id: 'c1', author: { login: 'carol', avatarUrl: '' }, createdAt: '', url: 'u', bodyText: 'hi' }, null] }
+    }), 'mine')
+    expect(s.reviews).toHaveLength(1)
+    expect(s.comments).toHaveLength(1)
+    expect(s.reviews[0].id).toBe('r1')
+    expect(s.comments[0].id).toBe('c1')
+  })
 })

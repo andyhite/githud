@@ -92,13 +92,15 @@ export function NeedsReviewTable({
   items,
   hiddenIds = [],
   onHide,
-  onUnhide
-}: { items: PullRequest[] } & HideProps) {
+  onUnhide,
+  loading
+}: { items: PullRequest[]; loading?: boolean } & HideProps) {
   const [showHidden, setShowHidden] = useState(false)
   const hiddenSet = new Set(hiddenIds)
   const visible = items.filter((pr) => !hiddenSet.has(pr.id))
   const hidden = items.filter((pr) => hiddenSet.has(pr.id))
 
+  if (loading && items.length === 0) return <p className="empty">Loading…</p>
   if (visible.length === 0 && hidden.length === 0)
     return <p className="empty">Nothing needs your review. 🎉</p>
 
@@ -127,7 +129,6 @@ export function NeedsReviewTable({
           {showHidden && hidden.map((pr) => row(pr, true))}
         </tbody>
       </table>
-      {visible.length === 0 && <p className="empty">Nothing needs your review. 🎉</p>}
       <ShowHiddenToggle count={hidden.length} open={showHidden} onToggle={() => setShowHidden((v) => !v)} />
     </>
   )

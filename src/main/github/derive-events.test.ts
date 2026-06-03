@@ -67,6 +67,36 @@ describe('deriveEvents', () => {
     expect(e).toMatchObject({ id: 'merged:GONE', kind: 'merged', createdAt: NOW })
   })
 
+  it('emits a closed lifecycle event for a fallen-out mine PR resolved as closed', () => {
+    const prev = [pr({ id: 'GONE', source: 'mine' })]
+    const fallenOut = new Map<string, 'merged' | 'closed'>([['GONE', 'closed']])
+    const [e] = deriveEvents(prev, [], 'me', NOW, fallenOut)
+    expect(e).toMatchObject({ id: 'closed:GONE', kind: 'closed' })
+  })
+
+  it('never emits a lifecycle event for a review-source PR that fell out', () => {
+    const prev = [pr({ id: 'GONE', source: 'review' })]
+    // even with a resolved label, review-source PRs are not the viewer's own work
+    const fallenOut = new Map<string, 'merged' | 'closed'>([['GONE', 'merged']])
+    expect(deriveEvents(prev, [], 'me', NOW, fallenOut)).toEqual([])
+  })
+
+  it('emits nothing for a fallen-out mine PR whose label could not be resolved', () => {
+    const prev = [pr({ id: 'GONE', source: 'mine' })]
+    // empty fallenOut map = REST resolution failed / still open; must stay silent
+    expect(deriveEvents(prev, [], 'me', NOW)).toEqual([])
+  })
+
+  it('falls back to `now` when a review/comment has no source timestamp', () => {
+    const prev = [pr()]
+    const next = [pr({
+      reviews: [{ id: 'r1', state: 'APPROVED', authorLogin: 'a', authorAvatarUrl: '', url: 'u', submittedAt: '' }],
+      comments: [{ id: 'c1', authorLogin: 'x', authorAvatarUrl: '', url: 'u', createdAt: '', bodyText: 'hi' }]
+    })]
+    const events = deriveEvents(prev, next, 'me', NOW)
+    expect(events.map((e) => e.createdAt)).toEqual([NOW, NOW])
+  })
+
   it('does not emit a backlog of comments for a PR seen for the first time', () => {
     const next = [pr({ id: 'NEW', source: 'review', comments: [{ id: 'c9', authorLogin: 'z', authorAvatarUrl: '', url: 'u', createdAt: NOW, bodyText: 'old' }] })]
     const events = deriveEvents([], next, 'me', NOW)

@@ -18,7 +18,7 @@ export interface PullRequest {
   repo: string // "owner/name"
   author: User
   reviewers: User[]
-  reviewState: 'approved' | 'changes_requested' | 'review_required' | 'none'
+  reviewState: 'approved' | 'changes_requested' | 'none'
   approvals: number
   mergeable: 'mergeable' | 'conflicting' | 'unknown'
   checks: ChecksSummary

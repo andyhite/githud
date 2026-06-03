@@ -38,6 +38,10 @@ function Dashboard({
   onCloseSettings: () => void
 }) {
   const { data: snapshot, refetch, isFetching } = useDashboard()
+  // Before any snapshot (cold start, no disk cache yet) data is undefined.
+  // Distinguish that from a genuinely-empty result so we don't flash the
+  // cheerful "all caught up" empty states before the first data arrives.
+  const loading = snapshot === undefined
 
   const qc = useQueryClient()
   const applyEvents = (events: FeedEvent[]) =>
@@ -71,6 +75,7 @@ function Dashboard({
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
+              loading={loading}
             />
           </div>
           <div className="panel">
@@ -80,6 +85,7 @@ function Dashboard({
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
+              loading={loading}
             />
           </div>
         </section>
@@ -89,7 +95,7 @@ function Dashboard({
             <span className="spacer" />
             {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
           </h2>
-          <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} />
+          <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}

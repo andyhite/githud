@@ -128,4 +128,42 @@ describe('normalizePullRequests', () => {
     expect(pr.checks.state).not.toBe('none')
     expect(pr.checks.state).toBe('success')
   })
+
+  it('returns an empty array for an empty, null, or null-containing node list', () => {
+    expect(normalizePullRequests([], { now, staleThresholdMs: staleMs })).toEqual([])
+    expect(normalizePullRequests(null as any, { now, staleThresholdMs: staleMs })).toEqual([])
+    expect(normalizePullRequests([null], { now, staleThresholdMs: staleMs })).toEqual([])
+  })
+
+  it('falls back to failure/pending from contexts when the rollup state is unrecognized', () => {
+    const failing = prNode({
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'STALE',
+        contexts: { nodes: [{ __typename: 'CheckRun', conclusion: 'FAILURE' }] }
+      } } }] }
+    })
+    expect(normalizePullRequests([failing], { now, staleThresholdMs: staleMs })[0].checks.state).toBe('failure')
+
+    const inProgress = prNode({
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'STALE',
+        contexts: { nodes: [
+          { __typename: 'CheckRun', conclusion: 'SUCCESS' },
+          { __typename: 'CheckRun', conclusion: null }
+        ] }
+      } } }] }
+    })
+    // passed (1) > 0 but passed !== total (2), and no failures -> pending
+    expect(normalizePullRequests([inProgress], { now, staleThresholdMs: staleMs })[0].checks.state).toBe('pending')
+  })
+
+  it('reports reviewState none for a PR with pending reviewers and zero submitted reviews', () => {
+    const node = prNode({
+      reviewRequests: { nodes: [{ requestedReviewer: { login: 'me', avatarUrl: '' } }] },
+      reviews: { nodes: [] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.reviewState).toBe('none')
+    expect(pr.approvals).toBe(0)
+  })
 })

@@ -25,4 +25,12 @@ describe('diffSnapshots', () => {
     const specs = diffSnapshots(snap([]), snap([ev('a')]))
     expect(specs[0].title).toBe('alice approved')
   })
+
+  it('caps a large batch of new events at 5 notifications', () => {
+    const next = snap(Array.from({ length: 7 }, (_, i) => ev(`e${i}`)))
+    const specs = diffSnapshots(snap([]), next)
+    expect(specs).toHaveLength(5)
+    // the cap takes the first 5 new events
+    expect(specs.map((s) => s.body)).toEqual(next.events.slice(0, 5).map((e) => `${e.repo} #${e.number} — ${e.title}`))
+  })
 })

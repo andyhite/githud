@@ -98,16 +98,20 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .activity-item.sev-info:hover { background-color: #58a6ff26; }
 .activity-item.sev-failure:hover { background-color: #f8514926; }
 .activity-item.sev-success:hover { background-color: #3fb95026; }
+.activity-item.sev-mention:hover { background-color: #d2992226; }
 /* Left accent + icon color encode severity; unread adds a faint tint. */
 .activity-item.sev-info { border-left-color: var(--blue); }
 .activity-item.sev-failure { border-left-color: var(--red); }
 .activity-item.sev-success { border-left-color: var(--green); }
+.activity-item.sev-mention { border-left-color: var(--amber); }
 .activity-item.sev-info .activity-icon { color: var(--blue); }
 .activity-item.sev-failure .activity-icon { color: var(--red); }
 .activity-item.sev-success .activity-icon { color: var(--green); }
+.activity-item.sev-mention .activity-icon { color: var(--amber); }
 .activity-item.unread.sev-info { background: #58a6ff14; }
 .activity-item.unread.sev-failure { background: #f8514914; }
 .activity-item.unread.sev-success { background: #3fb95014; }
+.activity-item.unread.sev-mention { background: #d2992214; }
 .activity-icon { flex: none; display: flex; padding-top: 2px; color: var(--muted); }
 .activity-main { flex: 1; min-width: 0; }
 .activity-head { display: flex; align-items: baseline; gap: 6px;

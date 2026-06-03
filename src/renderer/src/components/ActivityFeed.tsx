@@ -51,7 +51,12 @@ function EventRow({ event, onRead }: { event: FeedEvent; onRead: (id: string) =>
   )
 }
 
-export function ActivityFeed({ events, onRead }: { events: FeedEvent[]; onRead: (id: string) => void }) {
+export function ActivityFeed({
+  events,
+  onRead,
+  loading
+}: { events: FeedEvent[]; onRead: (id: string) => void; loading?: boolean }) {
+  if (loading && events.length === 0) return <p className="empty">Loading…</p>
   if (events.length === 0) return <p className="empty">No recent activity.</p>
   return (
     <div className="activity-feed">
