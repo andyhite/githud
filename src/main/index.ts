@@ -1,4 +1,4 @@
-import { app, BrowserWindow, clipboard, ipcMain, Notification, shell } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, Notification, shell, Tray } from 'electron'
 import { join } from 'path'
 import { DashboardSnapshot, Settings, AuthStatus } from '@shared/types'
 import { hasToken, loadToken, saveToken, clearToken } from './token-store'
@@ -11,10 +11,12 @@ import { filterEvents } from './github/filter-events'
 import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
 import { isSafeExternalUrl } from './safe-url'
+import { visibleNeedsReviewCount, dockBadge } from './tray-label'
 
 const POLL_INTERVAL_MS = 30_000
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 let poller: Poller | null = null
 let timer: ReturnType<typeof setInterval> | null = null
 let lastSnapshot: DashboardSnapshot | null = null
@@ -30,6 +32,7 @@ function sendSnapshot(snap: DashboardSnapshot): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('snapshot', snap)
   }
+  updateTray(snap)
 }
 
 function createWindow(): void {
@@ -73,6 +76,34 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => { mainWindow = null })
   mainWindow.on('focus', () => { if (hasToken()) void runPoll() })
+}
+
+function applyLoginItem(settings: Settings): void {
+  if (process.platform === 'darwin' || process.platform === 'win32') {
+    app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin })
+  }
+}
+
+function updateTray(snap: DashboardSnapshot | null): void {
+  const count = snap ? visibleNeedsReviewCount(snap) : 0
+  if (tray) tray.setTitle(count > 0 ? ` ${count}` : '')
+  if (process.platform === 'darwin' && app.dock) app.dock.setBadge(dockBadge(count))
+}
+
+function createTray(): void {
+  if (tray) return
+  // Empty image + text title is the lightest cross-platform tray on macOS,
+  // avoiding a bundled icon asset; the count rides in the title.
+  tray = new Tray(nativeImage.createEmpty())
+  tray.setToolTip('githud')
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open githud', click: () => { if (mainWindow) mainWindow.show(); else createWindow() } },
+      { label: 'Refresh now', click: () => { if (hasToken()) void runPoll() } },
+      { type: 'separator' },
+      { label: 'Quit', click: () => app.quit() }
+    ])
+  )
 }
 
 function ensurePoller(): boolean {
@@ -198,6 +229,7 @@ function registerIpc(): void {
   ipcMain.handle('getSettings', (): Settings => loadSettings())
   ipcMain.handle('saveSettings', (_e, settings: Settings): Settings => {
     const saved = saveSettings(settings)
+    applyLoginItem(saved)
     void runPoll() // re-apply filters immediately
     return saved
   })
@@ -240,7 +272,9 @@ function registerIpc(): void {
 app.whenReady().then(async () => {
   registerIpc()
   lastSnapshot = loadCachedSnapshot()
+  applyLoginItem(loadSettings())
   createWindow()
+  createTray()
 
   // If a token already exists, validate it (for viewer login) and start polling.
   const token = loadToken()

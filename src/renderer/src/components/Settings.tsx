@@ -105,6 +105,15 @@ export function Settings({ onClose }: { onClose: () => void }) {
           Hide bot authors in activity
         </label>
 
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.launchAtLogin}
+            onChange={(e) => setSettings({ ...settings, launchAtLogin: e.target.checked })}
+          />
+          Launch at login
+        </label>
+
         <label htmlFor="stale">Stale threshold (days)</label>
         <input
           id="stale"

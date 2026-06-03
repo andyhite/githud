@@ -28,6 +28,13 @@ describe('Settings', () => {
     )
   })
 
+  it('saves launch-at-login', async () => {
+    render(<Settings onClose={() => {}} />)
+    await userEvent.click(await screen.findByLabelText(/launch at login/i))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(window.api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ launchAtLogin: true }))
+  })
+
   it('toggles a notify-kind and enables quiet hours', async () => {
     render(<Settings onClose={() => {}} />)
     const approvals = await screen.findByLabelText(/approvals/i)
