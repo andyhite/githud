@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { FeedEvent, DashboardSnapshot } from '@shared/types'
+import { FeedEvent, DashboardSnapshot, PullRequest } from '@shared/types'
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
 import { TopBar } from './components/TopBar'
@@ -46,6 +46,14 @@ function Dashboard({
   const onReadAll = () => { void api.markAllRead().then(applyEvents) }
   const unread = snapshot?.events?.filter((e) => e.unread).length ?? 0
 
+  const applySnapshot = (snap: DashboardSnapshot) => qc.setQueryData(['dashboard'], snap)
+  const onHide = (pr: PullRequest) => { void api.hidePr(pr.id, pr.updatedAt).then(applySnapshot) }
+  const onUnhide = (id: string) => { void api.unhidePr(id).then(applySnapshot) }
+  const hiddenIds = snapshot?.hiddenPrIds ?? []
+  const hiddenSet = new Set(hiddenIds)
+  const visibleNeedsReview = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id)).length
+  const visibleMine = (snapshot?.myPullRequests ?? []).filter((p) => !hiddenSet.has(p.id)).length
+
   return (
     <div className="app">
       <TopBar
@@ -57,12 +65,22 @@ function Dashboard({
       <main className="layout">
         <section className="tables">
           <div className="panel">
-            <h2>Needs my review <span className="count">{snapshot?.needsReview.length ?? 0}</span></h2>
-            <NeedsReviewTable items={snapshot?.needsReview ?? []} />
+            <h2>Needs my review <span className="count">{visibleNeedsReview}</span></h2>
+            <NeedsReviewTable
+              items={snapshot?.needsReview ?? []}
+              hiddenIds={hiddenIds}
+              onHide={onHide}
+              onUnhide={onUnhide}
+            />
           </div>
           <div className="panel">
-            <h2>My open PRs <span className="count">{snapshot?.myPullRequests.length ?? 0}</span></h2>
-            <MyPullRequestsTable items={snapshot?.myPullRequests ?? []} />
+            <h2>My open PRs <span className="count">{visibleMine}</span></h2>
+            <MyPullRequestsTable
+              items={snapshot?.myPullRequests ?? []}
+              hiddenIds={hiddenIds}
+              onHide={onHide}
+              onUnhide={onUnhide}
+            />
           </div>
         </section>
         <aside className="rail panel">

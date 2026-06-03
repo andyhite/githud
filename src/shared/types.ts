@@ -57,6 +57,7 @@ export interface DashboardSnapshot {
   needsReview: PullRequest[]
   myPullRequests: PullRequest[]
   events: FeedEvent[]
+  hiddenPrIds: string[]
   rateLimit: RateLimit
   error?: string
 }
@@ -98,4 +99,6 @@ export interface GithudApi {
   openExternal(url: string): Promise<void>
   markRead(id: string): Promise<FeedEvent[]>
   markAllRead(): Promise<FeedEvent[]>
+  hidePr(id: string, updatedAt: string): Promise<DashboardSnapshot>
+  unhidePr(id: string): Promise<DashboardSnapshot>
 }
