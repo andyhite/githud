@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseRateLimitError } from './rate-limit'
+import { parseRateLimitError, classifyTokenError } from './rate-limit'
 
 const NOW = Date.parse('2026-06-03T12:00:00Z')
 const RESET_EPOCH = 1780488000 // arbitrary fixed epoch seconds
@@ -45,5 +45,24 @@ describe('parseRateLimitError', () => {
 
   it('returns null when headers carry no reset time', () => {
     expect(parseRateLimitError({ headers: { 'x-ratelimit-remaining': '0' } }, NOW)).toBeNull()
+  })
+})
+
+describe('classifyTokenError', () => {
+  it('classifies a rate-limit error and surfaces the reset time', () => {
+    const err = { status: 403, response: { headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(RESET_EPOCH) } } }
+    expect(classifyTokenError(err, NOW)).toEqual({ reason: 'rate_limit', resetAt: new Date(RESET_EPOCH * 1000).toISOString() })
+  })
+
+  it('classifies a 401 as an auth failure', () => {
+    expect(classifyTokenError({ status: 401 }, NOW)).toEqual({ reason: 'auth' })
+  })
+
+  it('classifies a 403 without rate-limit headers as an auth failure', () => {
+    expect(classifyTokenError({ status: 403 }, NOW)).toEqual({ reason: 'auth' })
+  })
+
+  it('classifies an error with no status as a network failure', () => {
+    expect(classifyTokenError(new Error('getaddrinfo ENOTFOUND api.github.com'), NOW)).toEqual({ reason: 'network' })
   })
 })

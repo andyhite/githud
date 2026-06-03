@@ -30,3 +30,18 @@ export function parseRateLimitError(err: any, nowMs: number): RateLimit | null {
 
   return { remaining: remaining ?? 0, resetAt, limit, used }
 }
+
+export type TokenErrorReason = 'auth' | 'rate_limit' | 'network'
+
+// Classify why a token validation / API call failed, so callers can tell a
+// genuinely bad token apart from a transient rate-limit or network blip. A
+// rate-limit error must NOT be treated as "token rejected" — the token is fine,
+// and (since the GraphQL budget is per-user) regenerating it won't help.
+// Pure: the caller passes the clock (for parseRateLimitError's retry-after path).
+export function classifyTokenError(err: any, nowMs: number): { reason: TokenErrorReason; resetAt?: string } {
+  const rl = parseRateLimitError(err, nowMs)
+  if (rl) return { reason: 'rate_limit', resetAt: rl.resetAt }
+  const status = err?.status ?? err?.response?.status
+  if (status === 401 || status === 403) return { reason: 'auth' }
+  return { reason: 'network' }
+}

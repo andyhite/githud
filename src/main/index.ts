@@ -293,10 +293,12 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('saveToken', async (_e, token: string) => {
-    const viewer = await validateToken(token)
-    if (!viewer) return { ok: false, error: 'Token rejected by GitHub. Check the value and scopes.' }
+    const v = await validateToken(token)
+    // Surface the real reason (rate-limit / network / auth) rather than always
+    // blaming the token — a rate-limited validation does NOT mean a bad token.
+    if (!v.ok) return { ok: false, error: v.message }
     saveToken(token)
-    viewerLogin = viewer.login
+    viewerLogin = v.login
     poller = new Poller(createClient(token))
     // New token = new data source (possibly a different account). Drop the old
     // baseline so the first poll seeds silently instead of diffing across
@@ -304,7 +306,7 @@ function registerIpc(): void {
     lastSnapshot = null
     baselineSeeded = false
     startPolling()
-    return { ok: true, login: viewer.login }
+    return { ok: true, login: v.login }
   })
 
   ipcMain.handle('getSettings', (): Settings => loadSettings())
@@ -415,12 +417,18 @@ app.whenReady().then(async () => {
   // If a token already exists, validate it (for viewer login) and start polling.
   const token = loadToken()
   if (token) {
-    const viewer = await validateToken(token)
-    if (viewer) {
-      viewerLogin = viewer.login
+    const v = await validateToken(token)
+    if (v.ok) {
+      viewerLogin = v.login
       startPolling()
+    } else if (v.reason === 'auth') {
+      clearToken() // genuinely rejected -> renderer will show setup
     } else {
-      clearToken() // stale/invalid token -> renderer will show setup
+      // Rate-limited or offline at startup: the token is almost certainly fine.
+      // Keep it and start polling — the adaptive loop backs off and recovers
+      // when the window resets, instead of wiping a valid token (the old bug).
+      console.warn(`[startup] token not validated yet (${v.reason}); keeping it and polling`)
+      startPolling()
     }
   }
 
