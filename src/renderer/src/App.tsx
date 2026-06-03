@@ -12,7 +12,6 @@ import { Settings } from './components/Settings'
 import { Digest } from './components/Digest'
 import { ReviewPanel } from './components/ReviewPanel'
 import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
-import { matchesPr, matchesEvent } from './components/match'
 import { moveSelection } from './hooks/selection'
 import { CommandPalette, Command } from './components/CommandPalette'
 
@@ -44,7 +43,6 @@ function Dashboard({
   onCloseSettings: () => void
 }) {
   const { data: snapshot, refetch, isFetching } = useDashboard()
-  const [query, setQuery] = useState('')
   // Before any snapshot (cold start, no disk cache yet) data is undefined.
   // Distinguish that from a genuinely-empty result so we don't flash the
   // cheerful "all caught up" empty states before the first data arrives.
@@ -77,9 +75,9 @@ function Dashboard({
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [showHiddenReview, setShowHiddenReview] = useState(false)
   const [showHiddenMine, setShowHiddenMine] = useState(false)
-  const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)), verdicts)
+  const reviewItems = sortNeedsReview(snapshot?.needsReview ?? [], verdicts)
   const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
-  const mineItems = sortMyPrs((snapshot?.myPullRequests ?? []).filter((p) => matchesPr(p, query)))
+  const mineItems = sortMyPrs(snapshot?.myPullRequests ?? [])
   const hiddenReviewCount = reviewItems.length - visibleReview.length
   const hiddenMineCount = mineItems.filter((p) => hiddenSet.has(p.id)).length
 
@@ -120,8 +118,6 @@ function Dashboard({
         onRefresh={() => refetch()}
         onOpenSettings={onOpenSettings}
         isFetching={isFetching}
-        query={query}
-        onQueryChange={setQuery}
       />
       <main className="layout">
         <section className="tables">
@@ -169,7 +165,7 @@ function Dashboard({
             {aiOn && <button className="link-button" onClick={() => setShowDigest(true)}>catch me up</button>}
             {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
           </h2>
-          <ActivityFeed events={(snapshot?.events ?? []).filter((e) => matchesEvent(e, query))} onRead={onRead} loading={loading} />
+          <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}

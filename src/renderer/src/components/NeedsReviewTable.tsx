@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { PullRequest, TriageVerdict, SizeBucket } from '@shared/types'
-import { sizeBucket } from '@shared/size'
+import { PullRequest, TriageVerdict } from '@shared/types'
 import { api } from '../api'
 import { computeSnoozeUntil } from './snooze'
 
@@ -140,13 +139,10 @@ function stackedBase(baseBranch: string): string | null {
   return baseBranch
 }
 
-const SIZE_CLASS: Record<SizeBucket, string> = { S: 'size-s', M: 'size-m', L: 'size-l', XL: 'size-xl' }
-
-export function SizeChip({ pr }: { pr: PullRequest }) {
-  const b = sizeBucket(pr)
+export function DiffStat({ pr }: { pr: PullRequest }) {
   return (
-    <span className={`size-chip ${SIZE_CLASS[b]}`} title={`+${pr.additions} −${pr.deletions} · ${pr.changedFiles} file${pr.changedFiles === 1 ? '' : 's'}`}>
-      {b}
+    <span className="diffstat" title={`${pr.changedFiles} file${pr.changedFiles === 1 ? '' : 's'} changed`}>
+      <span className="add">+{pr.additions}</span> <span className="del">−{pr.deletions}</span>
     </span>
   )
 }
@@ -209,7 +205,7 @@ export function NeedsReviewTable({
   const row = (pr: PullRequest, isHidden: boolean) => (
     <tr key={pr.id} className={[isHidden ? 'row-hidden' : '', pr.id === selectedId ? 'row-selected' : ''].filter(Boolean).join(' ') || undefined}>
       <td><PrTitleCell pr={pr} showAuthor /></td>
-      <td className="col-size"><SizeChip pr={pr} /></td>
+      <td className="col-diff"><DiffStat pr={pr} /></td>
       {aiOn && <td className="col-triage"><TriageChip verdict={verdicts?.[pr.id]} /></td>}
       <td className="col-age"><AgeCell pr={pr} /></td>
       <td className="actions"><RowActions pr={pr} isHidden={isHidden} aiOn={aiOn} onHide={onHide} onUnhide={onUnhide} onSnooze={onSnooze} onReview={onReview} /></td>
@@ -221,7 +217,7 @@ export function NeedsReviewTable({
       <thead>
         <tr>
           <th>PR</th>
-          <th className="col-size">Size</th>
+          <th className="col-diff">Diff</th>
           {aiOn && <th className="col-triage">Triage</th>}
           <th className="col-age">Age</th>
           <th aria-hidden="true"></th>

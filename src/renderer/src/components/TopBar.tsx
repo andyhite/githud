@@ -11,16 +11,12 @@ export function TopBar({
   snapshot,
   onRefresh,
   onOpenSettings,
-  isFetching,
-  query,
-  onQueryChange
+  isFetching
 }: {
   snapshot: DashboardSnapshot | null
   onRefresh: () => void
   onOpenSettings: () => void
   isFetching: boolean
-  query: string
-  onQueryChange: (q: string) => void
 }) {
   // Tick so the relative age — and the stale escalation — keeps advancing even
   // when no snapshot arrives (silent timer stall / machine sleep), since the
@@ -35,7 +31,8 @@ export function TopBar({
   const hidden = new Set(snapshot?.hiddenPrIds ?? [])
   const failing = snapshot?.myPullRequests.filter((p) => !hidden.has(p.id) && p.checks.state === 'failure').length ?? 0
   const needs = snapshot?.needsReview.filter((p) => !hidden.has(p.id)).length ?? 0
-  const summary = needs === 0 && failing === 0 ? 'all caught up' : `${needs} to review${failing ? ` · ${failing} failing` : ''}`
+  // Summary = review queue; the failing count is shown only by the badge below.
+  const summary = needs === 0 ? 'all caught up' : `${needs} to review`
 
   const ageMs = snapshot ? Date.now() - Date.parse(snapshot.fetchedAt) : 0
   const isStale = !!snapshot && !snapshot.error && ageMs > STALE_MS
@@ -48,14 +45,6 @@ export function TopBar({
     <header className="top-bar">
       <span className="brand">githud</span>
       <span className="summary">{summary}</span>
-      <input
-        className="filter-input"
-        type="search"
-        placeholder="Filter…"
-        aria-label="Filter"
-        value={query}
-        onChange={(e) => onQueryChange(e.target.value)}
-      />
       {failing > 0 && <span className="badge bad">✗ {failing} failing</span>}
       <span className="spacer" />
       {lowBudget && (

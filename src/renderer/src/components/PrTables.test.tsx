@@ -43,9 +43,10 @@ describe('NeedsReviewTable', () => {
     expect(screen.getByText(/quick approve/i)).toBeInTheDocument()
   })
 
-  it('shows a size chip, stacked base, and unresolved-thread count', () => {
+  it('shows the diff stat, stacked base, and unresolved-thread count', () => {
     render(<NeedsReviewTable items={[pr({ additions: 40, deletions: 8, changedFiles: 3, baseBranch: 'feature/parent', unresolvedThreads: 3 })]} />)
-    expect(screen.getByText('M')).toBeInTheDocument() // 48 lines / 3 files → M
+    expect(screen.getByText('+40')).toBeInTheDocument()
+    expect(screen.getByText(/[−-]8/)).toBeInTheDocument()
     expect(screen.getByText(/→ feature\/parent/)).toBeInTheDocument()
     expect(screen.getByText(/3 unresolved/)).toBeInTheDocument()
   })

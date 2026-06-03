@@ -22,9 +22,6 @@ body { margin: 0; background: var(--bg); color: var(--text);
   background: var(--panel); border-bottom: 1px solid var(--border); }
 .top-bar .brand { font-weight: 700; color: var(--bright); }
 .top-bar .summary { color: var(--muted); }
-.top-bar .filter-input { background: var(--bg); border: 1px solid var(--border);
-  color: var(--text); border-radius: 7px; padding: 4px 10px; font-size: 13px; width: 180px; }
-.top-bar .filter-input:focus { outline: none; border-color: var(--blue); }
 .top-bar .spacer { flex: 1; }
 .top-bar button { background: transparent; border: 1px solid var(--border);
   color: var(--text); border-radius: 7px; padding: 5px 12px; font-size: 23px;
@@ -63,8 +60,11 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .pr-table { width: 100%; border-collapse: collapse; }
 .pr-table th { text-align: left; color: var(--muted); font-weight: 500;
   font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
-  padding: 4px 6px; border-bottom: 1px solid var(--border); }
-.pr-table td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  padding: 4px 14px; border-bottom: 1px solid var(--border); }
+.pr-table td { padding: 7px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+/* Flush the row's outer edges with the panel; the gap goes between columns. */
+.pr-table th:first-child, .pr-table td:first-child { padding-left: 2px; }
+.pr-table th:last-child, .pr-table td:last-child { padding-right: 2px; }
 .pr-link { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   background: none; border: none; padding: 0; cursor: pointer; text-align: left; width: 100%; }
 .pr-title { color: var(--bright); transition: color .12s; }
@@ -78,7 +78,7 @@ body { margin: 0; background: var(--bg); color: var(--text);
 /* Compact triage / age / status / size columns — shrink to content, rest goes to PR. */
 .pr-table th.col-age, .pr-table td.col-age,
 .pr-table th.col-triage, .pr-table td.col-triage,
-.pr-table th.col-size, .pr-table td.col-size,
+.pr-table th.col-diff, .pr-table td.col-diff,
 .pr-table th.col-status, .pr-table td.col-status { width: 1%; white-space: nowrap; }
 .pr-table td.col-age { color: var(--muted); }
 .reviewer-chips { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -207,12 +207,10 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .status-tag.st-amber { background: #d2992238; color: #e3b341; }
 .status-tag.st-blue { background: #58a6ff33; color: #79c0ff; }
 .status-tag.st-muted { background: #8b949e22; color: var(--muted); }
-/* Diff-size chip — S small/green → XL big/red so review effort is glanceable. */
-.size-chip { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9px; min-width: 22px; display: inline-block; text-align: center; }
-.size-chip.size-s { background: #3fb95033; color: #56d364; }
-.size-chip.size-m { background: #58a6ff33; color: #79c0ff; }
-.size-chip.size-l { background: #d2992238; color: #e3b341; }
-.size-chip.size-xl { background: #f8514933; color: #ff7b72; }
+/* Diff stat — actual +adds / −dels as plain colored text. */
+.diffstat { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.diffstat .add { color: #56d364; }
+.diffstat .del { color: #ff7b72; }
 .settings-panel select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px; }
 
 /* Rendered markdown (catch-me-up digest, future AI prose). */
