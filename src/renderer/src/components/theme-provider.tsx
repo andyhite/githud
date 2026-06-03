@@ -1,17 +1,16 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 
 type Theme = 'dark' | 'light' | 'system'
 type ThemeProviderState = { theme: Theme; setTheme: (t: Theme) => void }
 
-const initial: ThemeProviderState = { theme: 'system', setTheme: () => null }
-const ThemeProviderContext = createContext<ThemeProviderState>(initial)
+const ThemeProviderContext = createContext<ThemeProviderState | undefined>(undefined)
 
 export function ThemeProvider({
   children,
   defaultTheme = 'dark',
   storageKey = 'githud-theme'
 }: {
-  children: React.ReactNode
+  children: ReactNode
   defaultTheme?: Theme
   storageKey?: string
 }) {
