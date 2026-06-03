@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render as rtlRender, screen, fireEvent, within } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import userEvent from '@testing-library/user-event'
 import { Settings } from './Settings'
+import { ThemeProvider } from './theme-provider'
 import { DEFAULT_SETTINGS } from '@shared/types'
+
+// Settings reads useTheme() for the Appearance section, so renders need the provider.
+const render = (ui: ReactElement) => rtlRender(<ThemeProvider>{ui}</ThemeProvider>)
 
 beforeEach(() => {
   window.api = {
@@ -85,7 +90,7 @@ describe('Settings', () => {
   it('saves an edited refresh interval via the preset control', async () => {
     render(<Settings onClose={() => {}} />)
     const group = await screen.findByRole('group', { name: /refresh interval/i })
-    await userEvent.click(within(group).getByRole('button', { name: '2m' }))
+    await userEvent.click(within(group).getByRole('radio', { name: '2m' }))
     await save()
     expect(window.api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ refreshIntervalSeconds: 120 }))
   })
@@ -93,7 +98,9 @@ describe('Settings', () => {
   it('saves an edited API budget via the slider', async () => {
     render(<Settings onClose={() => {}} />)
     const budget = await screen.findByLabelText(/api budget/i)
-    fireEvent.change(budget, { target: { value: '50' } })
+    // Radix Slider is a focusable thumb, not a native range input; it responds
+    // to arrow keys (step 5). Default budget is 80; six ArrowDowns lands on 50.
+    for (let i = 0; i < 6; i++) fireEvent.keyDown(budget, { key: 'ArrowDown' })
     await save()
     expect(window.api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ apiBudgetPercent: 50 }))
   })

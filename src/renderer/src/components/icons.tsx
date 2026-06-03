@@ -1,64 +1,34 @@
 import { FeedEventKind } from '@shared/types'
+import { cn } from '@/lib/utils'
+import {
+  AtSign,
+  CheckCircle2,
+  Eye,
+  GitMerge,
+  MessageSquare,
+  XCircle,
+  type LucideIcon
+} from 'lucide-react'
 
-// GitHub Octicon (16px) SVG path data. Icons inherit color via `currentColor`,
-// which is set per subject-type by ActivityFeed's CSS classes.
-const PATHS = {
-  pullRequest:
-    'M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z',
-  issue:
-    'M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z',
-  comment:
-    'M1 2.75C1 1.784 1.784 1 2.75 1h10.5c.966 0 1.75.784 1.75 1.75v7.5A1.75 1.75 0 0 1 13.25 12H9.06l-2.573 2.573A1.458 1.458 0 0 1 4 13.543V12H2.75A1.75 1.75 0 0 1 1 10.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.749.749 0 0 1 .53-.22h4.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z',
-  commit:
-    'M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z',
-  release:
-    'M1 7.775V2.75C1 1.784 1.784 1 2.75 1h5.025c.464 0 .91.184 1.238.513l6.25 6.25a1.75 1.75 0 0 1 0 2.474l-5.026 5.026a1.75 1.75 0 0 1-2.474 0l-6.25-6.25A1.752 1.752 0 0 1 1 7.775Zm1.5 0c0 .066.026.13.073.177l6.25 6.25a.25.25 0 0 0 .354 0l5.025-5.025a.25.25 0 0 0 0-.354l-6.25-6.25a.25.25 0 0 0-.177-.073H2.75a.25.25 0 0 0-.25.25ZM6 5a1 1 0 1 1 0 2 1 1 0 0 1 0-2Z',
-  bell:
-    'M8 16a2 2 0 0 0 1.985-1.75c.017-.137-.097-.25-.235-.25h-3.5c-.138 0-.252.113-.235.25A2 2 0 0 0 8 16ZM3 5a5 5 0 0 1 10 0v2.947c0 .05.015.098.042.139l1.703 2.555A1.519 1.519 0 0 1 13.482 13H2.518a1.516 1.516 0 0 1-1.263-2.36l1.703-2.554A.255.255 0 0 0 3 7.947Zm5-3.5A3.5 3.5 0 0 0 4.5 5v2.947c0 .346-.102.683-.294.97l-1.703 2.556a.018.018 0 0 0-.003.01l.001.006.004.006.006.004.007.001h10.964l.007-.001.006-.004.004-.006.001-.007a.017.017 0 0 0-.003-.01l-1.703-2.554a1.745 1.745 0 0 1-.294-.97V5A3.5 3.5 0 0 0 8 1.5Z',
-  check:
-    'M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z',
-  x:
-    'M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z',
-  gitMerge:
-    'M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0-1.5 0 .75.75 0 0 0 1.5 0Z',
-  eye:
-    'M8 2c1.981 0 3.671.992 4.933 2.078 1.27 1.091 2.187 2.345 2.637 3.023a1.62 1.62 0 0 1 0 1.798c-.45.678-1.367 1.932-2.637 3.023C11.67 13.008 9.981 14 8 14c-1.981 0-3.671-.992-4.933-2.078C1.797 10.831.88 9.577.43 8.899a1.62 1.62 0 0 1 0-1.798c.45-.678 1.367-1.932 2.637-3.023C4.33 2.992 6.019 2 8 2ZM8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z',
-  mention:
-    'M8 0a8 8 0 1 0 3.292 15.293.75.75 0 1 0-.617-1.367A6.5 6.5 0 1 1 14.5 8v.5a1 1 0 0 1-2 0V4.75a.75.75 0 0 0-1.5 0v.396A4 4 0 1 0 12 11.36a2.5 2.5 0 0 0 4.5-1.86V8a8 8 0 0 0-8-8Zm2.5 8a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z'
-} as const
-
-type IconName = keyof typeof PATHS
-
-function Octicon({ name }: { name: IconName }) {
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
-      <path d={PATHS[name]} />
-    </svg>
-  )
+// Each feed-event kind maps to a lucide glyph. The shape conveys the kind of
+// event; its *color* is set by severity at the row level, not here.
+const KIND_ICON: Record<FeedEventKind, LucideIcon> = {
+  approved: CheckCircle2,
+  changes_requested: XCircle,
+  review_commented: MessageSquare,
+  comment: MessageSquare,
+  mention: AtSign,
+  ci_failed: XCircle,
+  ci_succeeded: CheckCircle2,
+  ci_regressed: XCircle,
+  review_requested: Eye,
+  review_re_requested: Eye,
+  changes_addressed: CheckCircle2,
+  merged: GitMerge,
+  closed: XCircle
 }
 
-const KIND_ICON: Record<FeedEventKind, IconName> = {
-  approved: 'check',
-  changes_requested: 'x',
-  review_commented: 'comment',
-  comment: 'comment',
-  mention: 'mention',
-  ci_failed: 'x',
-  ci_succeeded: 'check',
-  ci_regressed: 'x',
-  review_requested: 'eye',
-  review_re_requested: 'eye',
-  changes_addressed: 'check',
-  merged: 'gitMerge',
-  closed: 'pullRequest'
-}
-
-// Icon shape conveys the kind of event; its *color* is set by severity at the
-// row level, not here.
-export function EventIcon({ kind }: { kind: FeedEventKind }) {
-  return (
-    <span className="activity-icon">
-      <Octicon name={KIND_ICON[kind]} />
-    </span>
-  )
+export function EventIcon({ kind, className }: { kind: FeedEventKind; className?: string }) {
+  const Icon = KIND_ICON[kind]
+  return <Icon className={cn('h-4 w-4', className)} aria-hidden="true" />
 }

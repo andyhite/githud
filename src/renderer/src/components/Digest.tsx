@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Markdown from 'react-markdown'
 import { api } from '../api'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 export function Digest({ onClose }: { onClose: () => void }) {
   const [text, setText] = useState<string | null>(null)
@@ -9,15 +10,17 @@ export function Digest({ onClose }: { onClose: () => void }) {
     api.getDigest().then((d) => setText(d.markdown)).catch((e) => setError(String(e?.message ?? e)))
   }, [])
   return (
-    <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
-        <h2>Catch me up</h2>
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Catch me up</DialogTitle>
+        </DialogHeader>
         {error ? (
-          <p className="empty">{error}</p>
+          <p className="text-muted-foreground">{error}</p>
         ) : text === null ? (
-          <p className="empty">Thinking…</p>
+          <p className="text-muted-foreground">Thinking…</p>
         ) : (
-          <div className="digest-md markdown-body">
+          <div className="markdown max-h-[60vh] overflow-auto">
             <Markdown
               components={{
                 // Open links in the OS browser via the gated IPC, not in-window.
@@ -35,8 +38,7 @@ export function Digest({ onClose }: { onClose: () => void }) {
             </Markdown>
           </div>
         )}
-        <div className="settings-actions"><button onClick={onClose}>Close</button></div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
