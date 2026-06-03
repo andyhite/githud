@@ -21,6 +21,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [authorsText, setAuthorsText] = useState('')
   const [aiKey, setAiKey] = useState('')
   const [aiConfigured, setAiConfigured] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -34,7 +35,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
   async function save() {
     const excludedAuthors = authorsText.split(',').map((a) => a.trim()).filter(Boolean)
     await api.saveSettings({ ...settings, excludedAuthors })
-    if (aiKey.trim()) await api.saveAiKey(aiKey.trim())
+    if (aiKey.trim()) {
+      const res = await api.saveAiKey(aiKey.trim())
+      if (!res.ok) { setAiError(res.error ?? 'Anthropic rejected the key.'); return } // keep panel open
+    }
     onClose()
   }
 
@@ -153,9 +157,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
           id="aikey"
           type="password"
           value={aiKey}
-          onChange={(e) => setAiKey(e.target.value)}
+          onChange={(e) => { setAiKey(e.target.value); setAiError(null) }}
           placeholder={aiConfigured ? '•••••• (leave blank to keep)' : 'sk-ant-…'}
         />
+        {aiError && <p className="error">{aiError}</p>}
 
         <div className="settings-actions">
           <button onClick={onClose}>Cancel</button>

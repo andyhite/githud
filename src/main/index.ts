@@ -279,6 +279,8 @@ function registerIpc(): void {
   ipcMain.handle('getTriage', async (_e, prId: string): Promise<TriageVerdict | null> => {
     const key = loadAiKey()
     if (!key || !lastSnapshot) return null
+    // Triage is a needs-review affordance only (unlike getReview, which also
+    // covers your own PRs); a non-needs-review prId legitimately resolves to null.
     const pr = lastSnapshot.needsReview.find((p) => p.id === prId)
     if (!pr) return null
     const headKey = pr.updatedAt // coarse head key; advances on new commits
