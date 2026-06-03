@@ -10,6 +10,8 @@ import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
 import { Digest } from './components/Digest'
+import { DigestPane } from './components/DigestPane'
+import { useDigest } from './hooks/useDigest'
 import { ReviewPanel } from './components/ReviewPanel'
 import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
 import { moveSelection } from './hooks/selection'
@@ -51,6 +53,7 @@ function Dashboard({
 
   const [aiOn, setAiOn] = useState(false)
   const [showDigest, setShowDigest] = useState(false)
+  const digest = useDigest(aiOn)
   const [reviewId, setReviewId] = useState<string | null>(null)
   const [verdicts, setVerdicts] = useState<Record<string, TriageVerdict>>({})
   const requested = useRef<Set<string>>(new Set())
@@ -180,6 +183,7 @@ function Dashboard({
             {aiOn && <button className="link-button" onClick={() => setShowDigest(true)}>catch me up</button>}
             {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
           </h2>
+          {aiOn && <DigestPane digest={digest} />}
           <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
         </aside>
       </main>

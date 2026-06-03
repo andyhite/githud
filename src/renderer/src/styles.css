@@ -35,7 +35,7 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .badge.warn { background: #d2992222; color: var(--amber); }
 .refreshed { color: var(--muted); font-size: 12px; }
 
-.layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 12px;
+.layout { display: grid; grid-template-columns: 2fr 1fr; gap: 12px;
   padding: 12px; overflow: hidden; flex: 1; }
 .tables { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow: hidden; }
 .tables > .panel { flex: 1 1 0; min-height: 0; overflow-y: auto; }
@@ -253,3 +253,10 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .trend-card .delta.flat { color: var(--muted); }
 .trend-card .collecting { font-size: 12px; color: var(--muted); padding: 6px 0 12px; }
 .trend-card .spark { display: block; margin-top: 4px; }
+
+/* Brief "since you were away" delta digest, above the activity feed. */
+.digest-pane { margin-bottom: 10px; padding: 9px 11px; border: 1px solid var(--line);
+  border-left: 2px solid var(--blue); border-radius: 7px; background: #1f6feb11; }
+.digest-pane .digest-sentence { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text); }
+.digest-pane .digest-sentence.empty { color: var(--muted); }
+.digest-pane .digest-meta { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
