@@ -11,6 +11,8 @@ import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
 import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
 import { matchesPr, matchesEvent } from './components/match'
+import { moveSelection } from './hooks/selection'
+import { CommandPalette, Command } from './components/CommandPalette'
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
@@ -62,6 +64,31 @@ function Dashboard({
   const visibleNeedsReview = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id)).length
   const visibleMine = (snapshot?.myPullRequests ?? []).filter((p) => !hiddenSet.has(p.id)).length
 
+  const [selected, setSelected] = useState(-1)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)))
+  const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen(true); return }
+      if (e.key === 'j') setSelected((i) => moveSelection(i, 'down', visibleReview.length))
+      if (e.key === 'k') setSelected((i) => moveSelection(i, 'up', visibleReview.length))
+      if (e.key === 'Enter' && selected >= 0 && visibleReview[selected]) api.openExternal(visibleReview[selected].url)
+      if (e.key === 'e' && selected >= 0 && visibleReview[selected]) onHide(visibleReview[selected])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [visibleReview, selected])
+
+  const commands: Command[] = [
+    { id: 'refresh', label: 'Refresh now', run: () => refetch() },
+    { id: 'settings', label: 'Open settings', run: onOpenSettings },
+    { id: 'readall', label: 'Mark all activity read', run: onReadAll }
+  ]
+
   return (
     <div className="app">
       <TopBar
@@ -77,11 +104,12 @@ function Dashboard({
           <div className="panel">
             <h2>Needs my review <span className="count">{visibleNeedsReview}</span></h2>
             <NeedsReviewTable
-              items={sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)))}
+              items={reviewItems}
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
               onSnooze={onSnooze}
+              selectedId={visibleReview[selected]?.id}
               loading={loading}
             />
           </div>
@@ -107,6 +135,7 @@ function Dashboard({
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}
+      {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
     </div>
   )
 }

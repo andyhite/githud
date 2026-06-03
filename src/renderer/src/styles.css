@@ -159,3 +159,15 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .quiet-hours { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; color: var(--muted); }
 .quiet-hours input[type=time] { background: var(--bg); border: 1px solid var(--border);
   color: var(--text); border-radius: 6px; padding: 4px 6px; }
+
+.palette-overlay { position: fixed; inset: 0; background: #0008; display: flex;
+  justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 50; }
+.palette { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  width: 480px; max-width: 90vw; overflow: hidden; }
+.palette-input { width: 100%; background: transparent; border: none; border-bottom: 1px solid var(--line);
+  color: var(--bright); padding: 12px 14px; font-size: 15px; outline: none; }
+.palette-list { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow: auto; }
+.palette-list button { width: 100%; text-align: left; background: transparent; border: none;
+  color: var(--text); padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+.palette-list button:hover { background: var(--line); color: var(--bright); }
+.pr-table tr.row-selected td { background: #58a6ff22; }

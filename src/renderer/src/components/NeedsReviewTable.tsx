@@ -117,8 +117,9 @@ export function NeedsReviewTable({
   onHide,
   onUnhide,
   onSnooze,
+  selectedId,
   loading
-}: { items: PullRequest[]; loading?: boolean } & HideProps) {
+}: { items: PullRequest[]; loading?: boolean; selectedId?: string } & HideProps) {
   const [showHidden, setShowHidden] = useState(false)
   const hiddenSet = new Set(hiddenIds)
   const visible = items.filter((pr) => !hiddenSet.has(pr.id))
@@ -129,7 +130,7 @@ export function NeedsReviewTable({
     return <p className="empty">Nothing needs your review. 🎉</p>
 
   const row = (pr: PullRequest, isHidden: boolean) => (
-    <tr key={pr.id} className={isHidden ? 'row-hidden' : undefined}>
+    <tr key={pr.id} className={[isHidden ? 'row-hidden' : '', pr.id === selectedId ? 'row-selected' : ''].filter(Boolean).join(' ') || undefined}>
       <td><PrTitleCell pr={pr} /></td>
       <td>{pr.author.login}</td>
       <td><ReviewersCell pr={pr} /></td>
