@@ -156,7 +156,7 @@ function Dashboard({
         onToggleCollapsed={onToggleCharts}
       />
       <main className="grid grid-cols-[2fr_1fr] gap-3 p-3 flex-1 overflow-hidden">
-        <section className="flex flex-col gap-3 min-h-0">
+        <div className="flex flex-col gap-3 min-h-0">
           <Panel
             title="Needs my review"
             count={visibleNeedsReview}
@@ -220,7 +220,7 @@ function Dashboard({
               loading={loading}
             />
           </Panel>
-        </section>
+        </div>
         <aside className="flex flex-col gap-3 min-h-0 overflow-hidden">
           {aiOn && (
             <Panel title="Recap" actions={<span className="text-xs text-muted-foreground">since you were away</span>}>

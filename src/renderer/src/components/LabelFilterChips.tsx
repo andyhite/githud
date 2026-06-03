@@ -26,6 +26,9 @@ export function LabelFilterChips({
             aria-pressed={active}
             title={active ? `Hide ${label} PRs` : `Show ${label} PRs`}
             onClick={() => onToggle(label)}
+            className={cn(
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-md'
+            )}
           >
             <Chip
               tone={active ? 'info' : 'neutral'}
