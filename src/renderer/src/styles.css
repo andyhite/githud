@@ -191,7 +191,7 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .palette-list button:hover { background: var(--line); color: var(--bright); }
 .pr-table tr.row-selected td { background: #58a6ff22; }
 
-.triage-chip { font-size: 11px; padding: 1px 7px; border-radius: 9px; margin-left: 8px; white-space: nowrap; }
+.triage-chip { font-size: 11px; padding: 1px 7px; border-radius: 9px; white-space: nowrap; }
 .triage-chip.triage-green { background: #3fb95022; color: var(--green); }
 .triage-chip.triage-blue { background: #58a6ff22; color: var(--blue); }
 .triage-chip.triage-amber { background: #d2992222; color: var(--amber); }
