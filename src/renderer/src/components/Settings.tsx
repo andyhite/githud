@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsType, DEFAULT_SETTINGS, FeedEventKind } from '@shared/types'
 import { api } from '../api'
+import { cn } from '@/lib/utils'
 import { ChipInput } from './ChipInput'
 import { useTheme } from './theme-provider'
 import {
@@ -103,7 +104,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="sm:max-w-3xl p-0 gap-0">
+      <DialogContent className="sm:max-w-3xl p-0 gap-0" showCloseButton={false}>
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -112,7 +113,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
           value={section}
           onValueChange={(v) => setSection(v as SectionId)}
           orientation="vertical"
-          className="flex-row gap-0"
+          className="gap-0"
         >
           <TabsList variant="line" className="w-44 shrink-0 border-r p-2">
             {SECTIONS.map((s) => (
@@ -192,7 +193,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
 
               <fieldset className="grid gap-3" disabled={!settings.notificationsEnabled}>
                 <legend className="text-sm font-medium mb-1">Notify me about</legend>
-                <div className="grid grid-cols-2 gap-3">
+                <div className={cn('grid grid-cols-2 gap-3', !settings.notificationsEnabled && 'opacity-50')}>
                   {NOTIFY_OPTIONS.map(({ kind, label }) => (
                     <Label key={kind} className="flex items-center gap-2 font-normal">
                       <Checkbox
