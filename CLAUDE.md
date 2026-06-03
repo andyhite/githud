@@ -32,7 +32,7 @@ loop) — see the AI section below.
 
 ```
 src/
-  shared/types.ts          # DashboardSnapshot, PullRequest, FeedEvent, Settings, GithudApi, + AI types (TriageVerdict/DigestResult/ReviewResult) — the contract
+  shared/types.ts          # DashboardSnapshot (now includes `history: DailyMetric[]`), PullRequest, FeedEvent, Settings (now includes `chartsCollapsed: boolean`), GithudApi, DailyMetric, + AI types (TriageVerdict/DigestResult/ReviewResult) — the contract
   shared/size.ts           # sizeBucket(diffstat) -> S/M/L/XL  (pure; used by both the size column and the AI triage)
   main/
     index.ts               # window + IPC handlers + 30s poll loop + native notifications + navigation guard + tray/dock badge + login item
@@ -40,6 +40,7 @@ src/
     notifier.ts            # diffSnapshots(prev, next, {notifyKinds, now, quietHours}) -> NotificationSpec[]  (pure; per-kind filter + quiet hours; caps at 5)
     event-store.ts         # FeedEvent merge/read-state + PRState persistence (pure helpers + fs glue)
     hidden-store.ts        # hide / unhide / snooze PRs; resolveHidden(prs, hidden, now) prunes on merge/resurface/snooze-expiry  (pure + fs glue)
+    history-store.ts       # daily-metric samples (reviewQueue/openWipSize/merges) -> trend strip; pure helpers + fs glue (90-day retention)
     tray-label.ts          # visibleNeedsReviewCount + dockBadge  (pure)
     token-store.ts         # PAT encrypted via Electron safeStorage
     settings-store.ts, snapshot-cache.ts, paths.ts, safe-url.ts
@@ -70,6 +71,8 @@ src/
       TopBar.tsx           # summary + filter box + rate-limit/stale badges (ticking) + refresh/settings
       NeedsReviewTable.tsx # table + RowActions kebab (⋮) menu + TriageChip + the shared cell components
       MyPullRequestsTable.tsx, ActivityFeed.tsx, TokenSetup.tsx, Settings.tsx, CommandPalette.tsx (⌘K), Digest.tsx, ReviewPanel.tsx, icons.tsx
+      TrendStrip.tsx, Sparkline.tsx, MiniBars.tsx   # trend KPI strip above the tables
+      chart-geometry.ts, trend-metrics.ts           # pure, tested (SVG math + per-card derivations)
       pr-status.ts (mergeReadiness), sort-prs.ts, match.ts, snooze.ts, activity-severity.ts  # pure, tested
 ```
 
@@ -82,7 +85,7 @@ filtered by `filter-events`, and hidden PRs resolved by `hidden-store` →
 `DashboardSnapshot` → `diffSnapshots` fires the kinds the user opted into
 (`settings.notifyKinds`, suppressed during quiet hours) → cache to disk +
 `webContents.send('snapshot', …)` + tray/dock badge update → renderer TanStack
-Query updates. AI results are NOT part of this flow — they're fetched on demand.
+Query updates. AI results are NOT part of this flow — they're fetched on demand. The poller also calls `recordSample(...)` each poll to append today's metrics to `history-store`; the three history-backed trend cards (review queue / open WIP / merges) are empty ("collecting…") until history accumulates over real days — there is no backfill and app-not-running leaves gaps. The activity/day card is derived in the renderer from `snapshot.events` (the 100-event feed) and is available immediately.
 
 ## AI layer (opt-in)
 
@@ -95,7 +98,7 @@ Query updates. AI results are NOT part of this flow — they're fetched on deman
 
 ## Conventions & patterns
 
-- **Test pure logic, not glue.** Normalizers (`normalize-prs`, `pr-state`, `enrich-state`), filters (`filter-events`), diffing (`derive-events`, `notifier`), store helpers (`event-store`, `hidden-store`), and the pure renderer helpers (`pr-status`, `sort-prs`, `match`, `snooze`, `selection`, `activity-severity`, `tray-label`, `ai/size`, `ai/verdict`) are TDD'd with Vitest. Electron/SDK-glue files (`index.ts`, `poller.ts`, `client.ts`, `ai/*` calls, `fetch-diff`, tray wiring) have no unit tests — they're validated by the manual smoke test. New pure logic should follow TDD.
+- **Test pure logic, not glue.** Normalizers (`normalize-prs`, `pr-state`, `enrich-state`), filters (`filter-events`), diffing (`derive-events`, `notifier`), store helpers (`event-store`, `hidden-store`, `history-store`), and the pure renderer helpers (`pr-status`, `sort-prs`, `match`, `snooze`, `selection`, `activity-severity`, `tray-label`, `ai/size`, `ai/verdict`, `chart-geometry`, `trend-metrics`) are TDD'd with Vitest. Electron/SDK-glue files (`index.ts`, `poller.ts`, `client.ts`, `ai/*` calls, `fetch-diff`, tray wiring) have no unit tests — they're validated by the manual smoke test. New pure logic should follow TDD.
 - **Component tests** use React Testing Library; mock `window.api` in `beforeEach`.
 - Keep files small and single-purpose; pure functions take `any` GraphQL/REST input and return typed shapes.
 - **Adding a `FeedEventKind`** means updating four exhaustive `Record<FeedEventKind, …>` maps (`notifier.titleFor`, `ActivityFeed.ACTION`, `icons.KIND_ICON`, `activity-severity`) — typecheck enforces this.
@@ -112,6 +115,7 @@ Query updates. AI results are NOT part of this flow — they're fetched on deman
 - **Both secrets live only in main.** The GitHub PAT (`token-store`) and Anthropic key (`ai/key-store`) are encrypted via `safeStorage` and never imported by the renderer/preload. `saveToken`/`saveAiKey` only accept the secret inward and return `{ ok, … }` — never the secret. The typed IPC results (`DashboardSnapshot`, `TriageVerdict`, `DigestResult`, `ReviewResult`, `AiStatus`) carry no key material. Keep it that way.
 - **All per-row actions live in one kebab (⋮) menu** (`RowActions` in `NeedsReviewTable.tsx`), reused by both tables — hide/unhide/snooze/copy/pre-review. Add new row actions there, not as more inline buttons. Component tests open the kebab (`getByRole('button', { name: /row actions/i })`) then click a `role="menuitem"`.
 - **Settings inputs:** the `.settings-panel input[type=...]` rule must list every input type used (text/number/password) or the field renders unstyled; `<select>` has its own rule.
+- **Trend strip collapse state (`Settings.chartsCollapsed`) has a narrow stale-write window.** The Settings modal loads current settings on open; if the user toggles the strip's collapse button while the modal is open and then clicks Save, the modal overwrites `chartsCollapsed` with its stale value. This is cosmetic and self-corrects on the next toggle — low priority to fix.
 
 ## Scope discipline (YAGNI)
 

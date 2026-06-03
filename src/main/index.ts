@@ -170,6 +170,7 @@ async function doPoll(): Promise<DashboardSnapshot> {
           fetchedAt: new Date().toISOString(),
           viewer: { login: viewerLogin ?? '', avatarUrl: '' },
           needsReview: [], myPullRequests: [], events: [], hiddenPrIds: [],
+          history: [],
           rateLimit: { remaining: 0, resetAt: '' },
           error: err?.message ?? 'Refresh failed'
         }

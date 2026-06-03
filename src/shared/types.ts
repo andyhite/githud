@@ -57,6 +57,13 @@ export interface RateLimit {
   resetAt: string
 }
 
+export interface DailyMetric {
+  date: string // 'YYYY-MM-DD' in local time
+  reviewQueue: number // needsReview count, last sample of the day
+  openWipSize: number // sum of (additions + deletions) over my open PRs, last sample
+  merges: number // count of my PRs that merged that day (accumulated)
+}
+
 export interface DashboardSnapshot {
   fetchedAt: string
   viewer: User
@@ -64,6 +71,7 @@ export interface DashboardSnapshot {
   myPullRequests: PullRequest[]
   events: FeedEvent[]
   hiddenPrIds: string[]
+  history: DailyMetric[]
   rateLimit: RateLimit
   error?: string
 }
@@ -79,6 +87,8 @@ export interface Settings {
   quietHours: { start: string; end: string } | null
   // M7: register the app as a macOS login item.
   launchAtLogin: boolean
+  // Charts: collapse state of the trend strip above the tables.
+  chartsCollapsed: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -88,7 +98,8 @@ export const DEFAULT_SETTINGS: Settings = {
   hideBots: true,
   notifyKinds: ['mention', 'changes_requested', 'ci_failed', 'changes_addressed', 'review_re_requested'],
   quietHours: null,
-  launchAtLogin: false
+  launchAtLogin: false,
+  chartsCollapsed: false
 }
 
 export interface NotificationSpec {

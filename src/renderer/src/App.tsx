@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { FeedEvent, DashboardSnapshot, PullRequest, TriageVerdict } from '@shared/types'
+import { FeedEvent, DashboardSnapshot, PullRequest, TriageVerdict, Settings as SettingsType, DEFAULT_SETTINGS } from '@shared/types'
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
 import { TopBar } from './components/TopBar'
@@ -14,6 +14,7 @@ import { ReviewPanel } from './components/ReviewPanel'
 import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
 import { moveSelection } from './hooks/selection'
 import { CommandPalette, Command } from './components/CommandPalette'
+import { TrendStrip } from './components/TrendStrip'
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
@@ -54,6 +55,14 @@ function Dashboard({
   const [verdicts, setVerdicts] = useState<Record<string, TriageVerdict>>({})
   const requested = useRef<Set<string>>(new Set())
   useEffect(() => { api.getAiStatus().then((s) => setAiOn(s.hasKey)) }, [])
+
+  const [settings, setSettings] = useState<SettingsType>(DEFAULT_SETTINGS)
+  useEffect(() => { api.getSettings().then(setSettings) }, [])
+  const onToggleCharts = () => {
+    const next = { ...settings, chartsCollapsed: !settings.chartsCollapsed }
+    setSettings(next)
+    void api.saveSettings(next)
+  }
 
   const qc = useQueryClient()
   const applyEvents = (events: FeedEvent[]) =>
@@ -118,6 +127,12 @@ function Dashboard({
         onRefresh={() => refetch()}
         onOpenSettings={onOpenSettings}
         isFetching={isFetching}
+      />
+      <TrendStrip
+        history={snapshot?.history ?? []}
+        events={snapshot?.events ?? []}
+        collapsed={settings.chartsCollapsed}
+        onToggleCollapsed={onToggleCharts}
       />
       <main className="layout">
         <section className="tables">
