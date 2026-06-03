@@ -16,6 +16,7 @@ export interface PullRequest {
   title: string
   url: string
   repo: string // "owner/name"
+  branch: string // headRefName, for copy-branch
   author: User
   reviewers: User[]
   reviewState: 'approved' | 'changes_requested' | 'none'
@@ -30,8 +31,8 @@ export interface PullRequest {
 export type FeedEventKind =
   | 'approved' | 'changes_requested' | 'review_commented'
   | 'comment' | 'mention'
-  | 'ci_failed' | 'ci_succeeded'
-  | 'review_requested'
+  | 'ci_failed' | 'ci_succeeded' | 'ci_regressed'
+  | 'review_requested' | 'review_re_requested' | 'changes_addressed'
   | 'merged' | 'closed'
 
 export interface FeedEvent {
@@ -62,18 +63,32 @@ export interface DashboardSnapshot {
   error?: string
 }
 
+export type TriageSort = 'oldest-first' | 'quick-first' | 'risky-first'
+
 export interface Settings {
   staleThresholdDays: number
   notificationsEnabled: boolean
   excludedAuthors: string[]
   hideBots: boolean
+  // M1: which event kinds fire a desktop notification (master switch is notificationsEnabled). Empty array = notify on nothing.
+  notifyKinds: FeedEventKind[]
+  // M1: suppress notifications during this local-time window. null = always on. "HH:MM" 24h local; may wrap midnight (start > end).
+  quietHours: { start: string; end: string } | null
+  // M3: ordering for the Needs-review list.
+  triageSort: TriageSort
+  // M7: register the app as a macOS login item.
+  launchAtLogin: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   staleThresholdDays: 2,
   notificationsEnabled: true,
   excludedAuthors: [],
-  hideBots: true
+  hideBots: true,
+  notifyKinds: ['mention', 'changes_requested', 'ci_failed', 'changes_addressed', 'review_re_requested'],
+  quietHours: null,
+  triageSort: 'oldest-first',
+  launchAtLogin: false
 }
 
 export interface NotificationSpec {
@@ -85,6 +100,47 @@ export interface NotificationSpec {
 export interface AuthStatus {
   hasToken: boolean
   login?: string
+}
+
+// --- AI layer (Phase 3) ---
+
+export type SizeBucket = 'S' | 'M' | 'L' | 'XL'
+export type RiskLevel = 'low' | 'medium' | 'high'
+export type TriageLabel = 'quick_approve' | 'careful_read' | 'likely_changes' | 'big_effort'
+
+export interface TriageVerdict {
+  prId: string
+  headOid: string
+  label: TriageLabel
+  size: SizeBucket
+  risk: RiskLevel
+  rationale: string
+  focusHint: string
+  generatedAt: string
+}
+
+export interface DigestResult {
+  markdown: string
+  generatedAt: string
+}
+
+export interface ReviewFinding {
+  severity: 'note' | 'concern' | 'blocker'
+  file: string
+  line?: number
+  note: string
+}
+
+export interface ReviewResult {
+  prId: string
+  headOid: string
+  findings: ReviewFinding[]
+  summary: string
+  generatedAt: string
+}
+
+export interface AiStatus {
+  hasKey: boolean
 }
 
 // The typed surface exposed on window.api by preload.
@@ -101,4 +157,14 @@ export interface GithudApi {
   markAllRead(): Promise<FeedEvent[]>
   hidePr(id: string, updatedAt: string): Promise<DashboardSnapshot>
   unhidePr(id: string): Promise<DashboardSnapshot>
+  // M6
+  snoozePr(id: string, updatedAt: string, until: string): Promise<DashboardSnapshot>
+  // M8 (clipboard via main keeps renderer CSP clean)
+  copyToClipboard(text: string): Promise<void>
+  // M10–M14 (AI; all reject if no key configured)
+  getAiStatus(): Promise<AiStatus>
+  saveAiKey(key: string): Promise<{ ok: boolean; error?: string }>
+  getTriage(prId: string): Promise<TriageVerdict | null>
+  getDigest(): Promise<DigestResult>
+  getReview(prId: string): Promise<ReviewResult>
 }

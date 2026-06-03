@@ -17,7 +17,14 @@ const api: GithudApi = {
   markRead: (id: string) => ipcRenderer.invoke('markRead', id),
   markAllRead: () => ipcRenderer.invoke('markAllRead'),
   hidePr: (id: string, updatedAt: string) => ipcRenderer.invoke('hidePr', id, updatedAt),
-  unhidePr: (id: string) => ipcRenderer.invoke('unhidePr', id)
+  unhidePr: (id: string) => ipcRenderer.invoke('unhidePr', id),
+  snoozePr: (id, updatedAt, until) => ipcRenderer.invoke('snoozePr', id, updatedAt, until),
+  copyToClipboard: (text) => ipcRenderer.invoke('copyToClipboard', text),
+  getAiStatus: () => ipcRenderer.invoke('getAiStatus'),
+  saveAiKey: (key) => ipcRenderer.invoke('saveAiKey', key),
+  getTriage: (prId) => ipcRenderer.invoke('getTriage', prId),
+  getDigest: () => ipcRenderer.invoke('getDigest'),
+  getReview: (prId) => ipcRenderer.invoke('getReview', prId)
 }
 
 contextBridge.exposeInMainWorld('api', api)

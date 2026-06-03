@@ -218,6 +218,14 @@ function registerIpc(): void {
     storeUnhidePr(id)
     return recomputeHidden() ?? lastSnapshot
   })
+
+  ipcMain.handle('snoozePr', () => { throw new Error('not implemented') })
+  ipcMain.handle('copyToClipboard', () => { throw new Error('not implemented') })
+  ipcMain.handle('getAiStatus', () => ({ hasKey: false }))
+  ipcMain.handle('saveAiKey', () => { throw new Error('not implemented') })
+  ipcMain.handle('getTriage', () => null)
+  ipcMain.handle('getDigest', () => { throw new Error('not implemented') })
+  ipcMain.handle('getReview', () => { throw new Error('not implemented') })
 }
 
 app.whenReady().then(async () => {

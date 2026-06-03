@@ -12,7 +12,10 @@ const ACTION: Record<FeedEvent['kind'], string> = {
   mention: 'mentioned you',
   ci_failed: 'checks failed',
   ci_succeeded: 'checks passed',
+  ci_regressed: 'checks regressed',
   review_requested: 'review requested',
+  review_re_requested: 'review re-requested',
+  changes_addressed: 'changes addressed',
   merged: 'merged',
   closed: 'closed'
 }

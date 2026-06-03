@@ -8,6 +8,7 @@ import type { PullRequest } from '@shared/types'
 function pr(over: Partial<PullRequest> = {}): PullRequest {
   return {
     id: 'p1', number: 88, title: 'Fix nav focus trap', url: 'https://gh/88', repo: 'o/web',
+    branch: 'fix/nav-focus-trap',
     author: { login: 'asmith', avatarUrl: '' }, reviewers: [{ login: 'me', avatarUrl: '' }],
     reviewState: 'changes_requested', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'failure', passed: 11, failed: 1, total: 12 },

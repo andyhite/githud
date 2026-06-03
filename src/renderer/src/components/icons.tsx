@@ -45,7 +45,10 @@ const KIND_ICON: Record<FeedEventKind, IconName> = {
   mention: 'mention',
   ci_failed: 'x',
   ci_succeeded: 'check',
+  ci_regressed: 'x',
   review_requested: 'eye',
+  review_re_requested: 'eye',
+  changes_addressed: 'check',
   merged: 'gitMerge',
   closed: 'pullRequest'
 }
