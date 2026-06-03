@@ -1,7 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Settings as SettingsType, DEFAULT_SETTINGS, FeedEventKind } from '@shared/types'
 import { api } from '../api'
-import { Toggle, ChipInput, Slider, Segmented } from './inputs'
+import { ChipInput } from './ChipInput'
+import { useTheme } from './theme-provider'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Slider } from '@/components/ui/slider'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
 
 const NOTIFY_OPTIONS: { kind: FeedEventKind; label: string }[] = [
   { kind: 'mention', label: 'Mentions' },
@@ -24,13 +39,22 @@ const INTERVAL_PRESETS = [
   { label: '5m', value: 300 }
 ]
 
-type SectionId = 'general' | 'notifications' | 'filters' | 'connections'
+type SectionId = 'general' | 'notifications' | 'filters' | 'connections' | 'appearance'
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'filters', label: 'Filters & Team' },
-  { id: 'connections', label: 'Connections' }
+  { id: 'connections', label: 'Connections' },
+  { id: 'appearance', label: 'Appearance' }
 ]
+
+const THEME_OPTIONS = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' }
+] as const
+
+const fieldHelp = 'text-sm text-muted-foreground'
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const [section, setSection] = useState<SectionId>('general')
@@ -42,6 +66,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [aiConfigured, setAiConfigured] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [testStatus, setTestStatus] = useState<string | null>(null)
+  const { theme, setTheme } = useTheme()
 
   useEffect(() => { api.getSettings().then(setSettings) }, [])
   useEffect(() => { api.getAiStatus().then((s) => setAiConfigured(s.hasKey)) }, [])
@@ -74,132 +99,156 @@ export function Settings({ onClose }: { onClose: () => void }) {
     onClose()
   }
 
+  const intervalIsPreset = INTERVAL_PRESETS.some((o) => o.value === settings.refreshIntervalSeconds)
+
   return (
-    <div className="settings-overlay">
-      <div className="settings-panel">
-        <header className="settings-header">
-          <h2>Settings</h2>
-          <button className="settings-close" aria-label="Close settings" onClick={onClose}>×</button>
-        </header>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="sm:max-w-3xl p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b">
+          <DialogTitle>Settings</DialogTitle>
+        </DialogHeader>
 
-        <div className="settings-body">
-          <nav className="settings-nav" role="tablist" aria-label="Settings sections">
+        <Tabs
+          value={section}
+          onValueChange={(v) => setSection(v as SectionId)}
+          orientation="vertical"
+          className="flex-row gap-0"
+        >
+          <TabsList variant="line" className="w-44 shrink-0 border-r p-2">
             {SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                role="tab"
-                aria-selected={section === s.id}
-                className={section === s.id ? 'nav-item active' : 'nav-item'}
-                onClick={() => setSection(s.id)}
-              >
+              <TabsTrigger key={s.id} value={s.id} className="justify-start">
                 {s.label}
-              </button>
+              </TabsTrigger>
             ))}
-          </nav>
+          </TabsList>
 
-          <div className="settings-section" role="tabpanel">
-            {section === 'general' && (
-              <>
-                <Segmented
-                  label="Refresh interval"
-                  value={settings.refreshIntervalSeconds}
-                  options={INTERVAL_PRESETS}
-                  onChange={(v) => patch({ refreshIntervalSeconds: v })}
-                  formatCustom={(v) => `${v}s`}
-                />
-                <p className="field-help">How often githud polls GitHub. The adaptive loop only ever backs off from this as your API budget runs low.</p>
+          <div className="flex-1 max-h-[70vh] overflow-y-auto p-6">
+            <TabsContent value="general" className="grid gap-5 mt-0">
+              <div className="grid gap-2">
+                <Label>Refresh interval</Label>
+                <ToggleGroup
+                  type="single"
+                  value={intervalIsPreset ? String(settings.refreshIntervalSeconds) : ''}
+                  onValueChange={(v) => { if (v) patch({ refreshIntervalSeconds: Number(v) }) }}
+                  variant="outline"
+                  aria-label="Refresh interval"
+                >
+                  {INTERVAL_PRESETS.map((o) => (
+                    <ToggleGroupItem key={o.value} value={String(o.value)}>
+                      {o.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                {!intervalIsPreset && (
+                  <span className="text-sm text-muted-foreground">{settings.refreshIntervalSeconds}s</span>
+                )}
+              </div>
+              <p className={fieldHelp}>How often githud polls GitHub. The adaptive loop only ever backs off from this as your API budget runs low.</p>
 
+              <div className="grid gap-2">
+                <Label htmlFor="budget">
+                  API budget <span className="text-muted-foreground font-normal">{settings.apiBudgetPercent}%</span>
+                </Label>
                 <Slider
                   id="budget"
-                  label="API budget"
-                  value={settings.apiBudgetPercent}
+                  aria-label="API budget"
+                  value={[settings.apiBudgetPercent]}
                   min={10}
                   max={100}
                   step={5}
-                  onChange={(v) => patch({ apiBudgetPercent: v })}
-                  format={(v) => `${v}%`}
+                  onValueChange={([v]) => patch({ apiBudgetPercent: v })}
                 />
-                <p className="field-help">Max share of your hourly GitHub GraphQL budget githud may use before pausing until reset. The rest stays in reserve.</p>
+              </div>
+              <p className={fieldHelp}>Max share of your hourly GitHub GraphQL budget githud may use before pausing until reset. The rest stays in reserve.</p>
 
-                <div className="field">
-                  <label htmlFor="stale">Stale threshold (days)</label>
-                  <input
-                    id="stale"
-                    type="number"
-                    min={1}
-                    value={settings.staleThresholdDays}
-                    onChange={(e) => patch({ staleThresholdDays: Number(e.target.value) || 1 })}
-                  />
-                </div>
+              <div className="grid gap-2">
+                <Label htmlFor="stale">Stale threshold (days)</Label>
+                <Input
+                  id="stale"
+                  type="number"
+                  min={1}
+                  value={settings.staleThresholdDays}
+                  onChange={(e) => patch({ staleThresholdDays: Number(e.target.value) || 1 })}
+                />
+              </div>
 
-                <Toggle
-                  label="Launch at login"
+              <Label className="flex items-center gap-2">
+                <Switch
                   checked={settings.launchAtLogin}
-                  onChange={(v) => patch({ launchAtLogin: v })}
+                  onCheckedChange={(v) => patch({ launchAtLogin: v })}
                 />
-              </>
-            )}
+                Launch at login
+              </Label>
+            </TabsContent>
 
-            {section === 'notifications' && (
-              <>
-                <Toggle
-                  label="Enable desktop notifications"
+            <TabsContent value="notifications" className="grid gap-5 mt-0">
+              <Label className="flex items-center gap-2">
+                <Switch
                   checked={settings.notificationsEnabled}
-                  onChange={(v) => patch({ notificationsEnabled: v })}
+                  onCheckedChange={(v) => patch({ notificationsEnabled: v })}
                 />
+                Enable desktop notifications
+              </Label>
 
-                <fieldset className="settings-group notify-grid" disabled={!settings.notificationsEnabled}>
-                  <legend>Notify me about</legend>
+              <fieldset className="grid gap-3" disabled={!settings.notificationsEnabled}>
+                <legend className="text-sm font-medium mb-1">Notify me about</legend>
+                <div className="grid grid-cols-2 gap-3">
                   {NOTIFY_OPTIONS.map(({ kind, label }) => (
-                    <label key={kind} className="check">
-                      <input
-                        type="checkbox"
+                    <Label key={kind} className="flex items-center gap-2 font-normal">
+                      <Checkbox
                         checked={settings.notifyKinds.includes(kind)}
-                        onChange={(e) =>
+                        disabled={!settings.notificationsEnabled}
+                        onCheckedChange={(checked) =>
                           patch({
-                            notifyKinds: e.target.checked
+                            notifyKinds: checked
                               ? [...settings.notifyKinds, kind]
                               : settings.notifyKinds.filter((k) => k !== kind)
                           })
                         }
                       />
                       {label}
-                    </label>
+                    </Label>
                   ))}
-                </fieldset>
-
-                <div className="settings-test-notification">
-                  <button type="button" onClick={sendTest}>Send test notification</button>
-                  {testStatus && <p className="settings-hint">{testStatus}</p>}
                 </div>
+              </fieldset>
 
-                <Toggle
-                  label="Quiet hours"
+              <div className="grid gap-2">
+                <Button type="button" variant="outline" className="w-fit" onClick={sendTest}>
+                  Send test notification
+                </Button>
+                {testStatus && <p className={fieldHelp}>{testStatus}</p>}
+              </div>
+
+              <Label className="flex items-center gap-2">
+                <Switch
                   checked={settings.quietHours !== null}
-                  onChange={(v) => patch({ quietHours: v ? { start: '18:00', end: '09:00' } : null })}
+                  onCheckedChange={(v) => patch({ quietHours: v ? { start: '18:00', end: '09:00' } : null })}
                 />
-                {settings.quietHours && (
-                  <div className="quiet-hours">
-                    <input
-                      type="time"
-                      aria-label="Quiet hours start"
-                      value={settings.quietHours.start}
-                      onChange={(e) => patch({ quietHours: { ...settings.quietHours!, start: e.target.value } })}
-                    />
-                    <span>to</span>
-                    <input
-                      type="time"
-                      aria-label="Quiet hours end"
-                      value={settings.quietHours.end}
-                      onChange={(e) => patch({ quietHours: { ...settings.quietHours!, end: e.target.value } })}
-                    />
-                  </div>
-                )}
-              </>
-            )}
+                Quiet hours
+              </Label>
+              {settings.quietHours && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="time"
+                    aria-label="Quiet hours start"
+                    className="w-auto"
+                    value={settings.quietHours.start}
+                    onChange={(e) => patch({ quietHours: { ...settings.quietHours!, start: e.target.value } })}
+                  />
+                  <span className="text-sm text-muted-foreground">to</span>
+                  <Input
+                    type="time"
+                    aria-label="Quiet hours end"
+                    className="w-auto"
+                    value={settings.quietHours.end}
+                    onChange={(e) => patch({ quietHours: { ...settings.quietHours!, end: e.target.value } })}
+                  />
+                </div>
+              )}
+            </TabsContent>
 
-            {section === 'filters' && (
-              <>
+            <TabsContent value="filters" className="grid gap-5 mt-0">
+              <div className="grid gap-2">
                 <ChipInput
                   id="authors"
                   label="Excluded authors"
@@ -207,8 +256,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   onChange={(v) => patch({ excludedAuthors: v })}
                   placeholder="dependabot[bot], some-user"
                 />
-                <p className="field-help">Hide PRs, reviews, and activity from these GitHub logins everywhere.</p>
+                <p className={fieldHelp}>Hide PRs, reviews, and activity from these GitHub logins everywhere.</p>
+              </div>
 
+              <div className="grid gap-2">
                 <ChipInput
                   id="team-labels"
                   label="Team PR labels"
@@ -216,8 +267,10 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   onChange={(v) => patch({ teamLabels: v })}
                   placeholder="frontend, backend"
                 />
-                <p className="field-help">Open PRs carrying any of these labels appear in the Team panel. Empty hides the panel.</p>
+                <p className={fieldHelp}>Open PRs carrying any of these labels appear in the Team panel. Empty hides the panel.</p>
+              </div>
 
+              <div className="grid gap-2">
                 <ChipInput
                   id="team-orgs"
                   label="Team organizations"
@@ -225,49 +278,67 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   onChange={(v) => patch({ teamOrgs: v })}
                   placeholder="your-org"
                 />
-                <p className="field-help">Scope the team search to these orgs. Your own repos are always included.</p>
-              </>
-            )}
+                <p className={fieldHelp}>Scope the team search to these orgs. Your own repos are always included.</p>
+              </div>
+            </TabsContent>
 
-            {section === 'connections' && (
-              <>
-                <div className="field">
-                  <label htmlFor="ghtoken">
-                    GitHub token {tokenLogin && <span className="muted">(connected as @{tokenLogin})</span>}
-                  </label>
-                  <input
-                    id="ghtoken"
-                    type="password"
-                    value={token}
-                    onChange={(e) => { setToken(e.target.value); setTokenError(null) }}
-                    placeholder="ghp_… / github_pat_… (leave blank to keep)"
-                  />
-                  {tokenError && <p className="error">{tokenError}</p>}
-                </div>
+            <TabsContent value="connections" className="grid gap-5 mt-0">
+              <div className="grid gap-2">
+                <Label htmlFor="ghtoken">
+                  GitHub token {tokenLogin && <span className="text-muted-foreground font-normal">(connected as @{tokenLogin})</span>}
+                </Label>
+                <Input
+                  id="ghtoken"
+                  type="password"
+                  value={token}
+                  onChange={(e) => { setToken(e.target.value); setTokenError(null) }}
+                  placeholder="ghp_… / github_pat_… (leave blank to keep)"
+                />
+                {tokenError && <p className="text-sm text-destructive">{tokenError}</p>}
+              </div>
 
-                <div className="field">
-                  <label htmlFor="aikey">
-                    Anthropic API key {aiConfigured && <span className="muted">(configured)</span>}
-                  </label>
-                  <input
-                    id="aikey"
-                    type="password"
-                    value={aiKey}
-                    onChange={(e) => { setAiKey(e.target.value); setAiError(null) }}
-                    placeholder={aiConfigured ? '•••••• (leave blank to keep)' : 'sk-ant-…'}
-                  />
-                  {aiError && <p className="error">{aiError}</p>}
-                </div>
-              </>
-            )}
+              <div className="grid gap-2">
+                <Label htmlFor="aikey">
+                  Anthropic API key {aiConfigured && <span className="text-muted-foreground font-normal">(configured)</span>}
+                </Label>
+                <Input
+                  id="aikey"
+                  type="password"
+                  value={aiKey}
+                  onChange={(e) => { setAiKey(e.target.value); setAiError(null) }}
+                  placeholder={aiConfigured ? '•••••• (leave blank to keep)' : 'sk-ant-…'}
+                />
+                {aiError && <p className="text-sm text-destructive">{aiError}</p>}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="appearance" className="grid gap-5 mt-0">
+              <div className="grid gap-2">
+                <Label>Theme</Label>
+                <ToggleGroup
+                  type="single"
+                  value={theme}
+                  onValueChange={(v) => { if (v) setTheme(v as typeof theme) }}
+                  variant="outline"
+                  aria-label="Theme"
+                >
+                  {THEME_OPTIONS.map((o) => (
+                    <ToggleGroupItem key={o.value} value={o.value}>
+                      {o.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <p className={fieldHelp}>Match the system appearance or pin githud to light or dark.</p>
+              </div>
+            </TabsContent>
           </div>
-        </div>
+        </Tabs>
 
-        <div className="settings-actions">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={save}>Save</button>
+        <div className="flex justify-end gap-2 px-6 py-4 border-t">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={save}>Save</Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
