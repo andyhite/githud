@@ -10,7 +10,7 @@ import { hasAiKey, saveAiKey as storeAiKey, loadAiKey } from './ai/key-store'
 import { validateAiKey, createAiClient } from './ai/client'
 import { loadCache, saveCache, cacheKey } from './ai/cache'
 import { triagePr } from './ai/triage'
-import { buildDigest, digestFingerprint } from './ai/digest'
+import { buildDigest, digestFingerprint, eventsSince, buildDeltaDigest } from './ai/digest'
 import { reviewPr } from './ai/review'
 import { fetchPrDiff } from './github/fetch-diff'
 import type { TriageVerdict, ReviewResult } from '@shared/types'
@@ -35,12 +35,46 @@ let rerunRequested = false
 // lastSnapshot is pre-seeded from the disk cache for the renderer, so the first
 // live poll must be recognized explicitly to honor the "seed silently" contract.
 let baselineSeeded = false
+// Brief delta-digest state. lastFocusAt marks the start of the current "away"
+// window; it advances only after a delta digest is generated. digestInFlight
+// coalesces the win-focus / did-become-active double-fire on macOS.
+let lastFocusAt = new Date().toISOString()
+let digestInFlight = false
 
 function sendSnapshot(snap: DashboardSnapshot): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('snapshot', snap)
   }
   updateTray(snap)
+}
+
+// Generate the brief "since you were away" digest if the feed has anything new
+// since lastFocusAt. No new events -> no Claude call, no token spend, and the
+// renderer keeps showing its last digest. Quietly no-ops without an AI key.
+async function maybeGenerateDeltaDigest(): Promise<void> {
+  if (digestInFlight) return
+  const key = loadAiKey()
+  if (!key || !lastSnapshot) return
+  const since = lastFocusAt
+  if (eventsSince(lastSnapshot.events, since).length === 0) return
+  digestInFlight = true
+  try {
+    const result = await buildDeltaDigest(createAiClient(key), lastSnapshot, since, new Date().toISOString())
+    lastFocusAt = new Date().toISOString()
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('digest', result)
+  } catch (err: any) {
+    console.error('[digest] delta refresh failed:', err?.message ?? err)
+  } finally {
+    digestInFlight = false
+  }
+}
+
+// App brought to the foreground: refresh so the delta reflects current state,
+// then regenerate the brief digest. Does NOT clear the tray/dock badge (that
+// reflects the needs-review count, not unread).
+function onForeground(): void {
+  if (!hasToken()) return
+  void runPoll().then(() => maybeGenerateDeltaDigest())
 }
 
 function createWindow(): void {
@@ -83,7 +117,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('closed', () => { mainWindow = null })
-  mainWindow.on('focus', () => { if (hasToken()) void runPoll() })
+  mainWindow.on('focus', onForeground)
 }
 
 function applyLoginItem(settings: Settings): void {
@@ -366,6 +400,10 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+
+  // macOS: did-become-active also fires on ⌘-Tab App-Switcher activations that
+  // window 'focus' alone can miss. onForeground coalesces the overlap.
+  if (process.platform === 'darwin') app.on('did-become-active', onForeground)
 })
 
 app.on('window-all-closed', () => {
