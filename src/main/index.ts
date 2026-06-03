@@ -85,7 +85,12 @@ function ensurePoller(): boolean {
 
 function fireNotifications(prev: DashboardSnapshot | null, next: DashboardSnapshot, settings: Settings): void {
   if (!settings.notificationsEnabled || !Notification.isSupported()) return
-  for (const spec of diffSnapshots(prev, next)) {
+  const specs = diffSnapshots(prev, next, {
+    notifyKinds: settings.notifyKinds,
+    now: new Date(),
+    quietHours: settings.quietHours
+  })
+  for (const spec of specs) {
     const n = new Notification({ title: spec.title, body: spec.body })
     if (spec.url && isSafeExternalUrl(spec.url)) n.on('click', () => shell.openExternal(spec.url!))
     n.show()

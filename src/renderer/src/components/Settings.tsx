@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Settings as SettingsType, DEFAULT_SETTINGS } from '@shared/types'
+import { Settings as SettingsType, DEFAULT_SETTINGS, FeedEventKind } from '@shared/types'
 import { api } from '../api'
+
+const NOTIFY_OPTIONS: { kind: FeedEventKind; label: string }[] = [
+  { kind: 'mention', label: 'Mentions' },
+  { kind: 'changes_requested', label: 'Changes requested' },
+  { kind: 'changes_addressed', label: 'My change request addressed' },
+  { kind: 'review_re_requested', label: 'Re-review requested' },
+  { kind: 'review_requested', label: 'Review requested' },
+  { kind: 'approved', label: 'Approvals' },
+  { kind: 'ci_failed', label: 'CI failed' },
+  { kind: 'ci_regressed', label: 'CI regressed (was green)' },
+  { kind: 'comment', label: 'Comments' },
+  { kind: 'merged', label: 'Merged' }
+]
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<SettingsType>(DEFAULT_SETTINGS)
@@ -32,6 +45,55 @@ export function Settings({ onClose }: { onClose: () => void }) {
           />
           Enable desktop notifications
         </label>
+
+        <fieldset className="settings-group" disabled={!settings.notificationsEnabled}>
+          <legend>Notify me about</legend>
+          {NOTIFY_OPTIONS.map(({ kind, label }) => (
+            <label key={kind}>
+              <input
+                type="checkbox"
+                checked={settings.notifyKinds.includes(kind)}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    notifyKinds: e.target.checked
+                      ? [...settings.notifyKinds, kind]
+                      : settings.notifyKinds.filter((k) => k !== kind)
+                  })
+                }
+              />
+              {label}
+            </label>
+          ))}
+        </fieldset>
+
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.quietHours !== null}
+            onChange={(e) =>
+              setSettings({ ...settings, quietHours: e.target.checked ? { start: '18:00', end: '09:00' } : null })
+            }
+          />
+          Quiet hours
+        </label>
+        {settings.quietHours && (
+          <div className="quiet-hours">
+            <input
+              type="time"
+              aria-label="Quiet hours start"
+              value={settings.quietHours.start}
+              onChange={(e) => setSettings({ ...settings, quietHours: { ...settings.quietHours!, start: e.target.value } })}
+            />
+            <span>to</span>
+            <input
+              type="time"
+              aria-label="Quiet hours end"
+              value={settings.quietHours.end}
+              onChange={(e) => setSettings({ ...settings, quietHours: { ...settings.quietHours!, end: e.target.value } })}
+            />
+          </div>
+        )}
 
         <label>
           <input

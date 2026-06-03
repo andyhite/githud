@@ -27,4 +27,18 @@ describe('Settings', () => {
       expect.objectContaining({ hideBots: false, excludedAuthors: ['noisybot', 'anotherbot'] })
     )
   })
+
+  it('toggles a notify-kind and enables quiet hours', async () => {
+    render(<Settings onClose={() => {}} />)
+    const approvals = await screen.findByLabelText(/approvals/i)
+    await userEvent.click(approvals) // 'approved' is off by default in DEFAULT_SETTINGS.notifyKinds; click adds it
+    await userEvent.click(screen.getByLabelText(/quiet hours/i))
+    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(window.api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notifyKinds: expect.arrayContaining(['approved']),
+        quietHours: { start: '18:00', end: '09:00' }
+      })
+    )
+  })
 })
