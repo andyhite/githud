@@ -87,6 +87,7 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .pr-table .row-action:hover { background: var(--bg); color: var(--bright); border-color: var(--border); }
 .pr-table tr.row-hidden td { opacity: .5; }
 .pr-table tr.row-hidden .row-action { opacity: 1; } /* unhide always visible on revealed rows */
+.snooze-actions { display: inline-flex; gap: 4px; margin-right: 6px; }
 .copy-actions { display: inline-flex; gap: 4px; margin-right: 6px; }
 .show-hidden {
   background: transparent; border: none; color: var(--muted);

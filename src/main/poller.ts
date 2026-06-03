@@ -81,7 +81,8 @@ export class Poller {
 
     const { hiddenIds, kept } = resolveHidden(
       [...needsReview, ...myPullRequests].map((p) => ({ id: p.id, updatedAt: p.updatedAt })),
-      loadHidden()
+      loadHidden(),
+      now
     )
     saveHidden(kept)
 

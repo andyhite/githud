@@ -4,6 +4,7 @@ import { hiddenFilePath } from './paths'
 export interface HiddenPr {
   id: string
   updatedAt: string // PR.updatedAt captured at hide time
+  snoozeUntil?: string // if set, the entry is a snooze that expires at this ISO time
 }
 
 // --- pure helpers (unit-tested) ---
@@ -11,15 +12,19 @@ export interface HiddenPr {
 // A stored entry stays hidden iff its PR is still present AND its updatedAt has
 // not advanced past the value captured at hide time. Otherwise it's pruned:
 // PR absent => merged/closed/fell out; updatedAt advanced => resurfaced.
+// For snooze entries, expiry is also checked against `now`.
 export function resolveHidden(
   prs: { id: string; updatedAt: string }[],
-  hidden: HiddenPr[]
+  hidden: HiddenPr[],
+  now: number
 ): { hiddenIds: string[]; kept: HiddenPr[] } {
   const byId = new Map(prs.map((p) => [p.id, p]))
   const kept = hidden.filter((h) => {
     const pr = byId.get(h.id)
     if (!pr) return false
-    return Date.parse(pr.updatedAt) <= Date.parse(h.updatedAt)
+    if (Date.parse(pr.updatedAt) > Date.parse(h.updatedAt)) return false // resurfaced on new activity
+    if (h.snoozeUntil && now >= Date.parse(h.snoozeUntil)) return false // snooze expired
+    return true
   })
   return { hiddenIds: kept.map((h) => h.id), kept }
 }
@@ -30,6 +35,10 @@ export function applyHide(hidden: HiddenPr[], id: string, updatedAt: string): Hi
 
 export function applyUnhide(hidden: HiddenPr[], id: string): HiddenPr[] {
   return hidden.filter((h) => h.id !== id)
+}
+
+export function applySnooze(hidden: HiddenPr[], id: string, updatedAt: string, until: string): HiddenPr[] {
+  return [...hidden.filter((h) => h.id !== id), { id, updatedAt, snoozeUntil: until }]
 }
 
 // --- fs-backed store (glue) ---
@@ -55,4 +64,8 @@ export function hidePr(id: string, updatedAt: string): HiddenPr[] {
 
 export function unhidePr(id: string): HiddenPr[] {
   return saveHidden(applyUnhide(loadHidden(), id))
+}
+
+export function snoozePr(id: string, updatedAt: string, until: string): HiddenPr[] {
+  return saveHidden(applySnooze(loadHidden(), id, updatedAt, until))
 }

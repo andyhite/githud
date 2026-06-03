@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { PullRequest } from '@shared/types'
 import { api } from '../api'
+import { computeSnoozeUntil, SnoozePreset } from './snooze'
 
 export interface HideProps {
   hiddenIds?: string[]
   onHide?: (pr: PullRequest) => void
   onUnhide?: (id: string) => void
+  onSnooze?: (pr: PullRequest, until: string) => void
 }
 
 export function HideCell({
@@ -27,6 +29,18 @@ export function HideCell({
     <button className="row-action hide-action" title="Hide this PR" onClick={() => onHide?.(pr)}>
       hide
     </button>
+  )
+}
+
+export function SnoozeCell({ pr, onSnooze }: { pr: PullRequest; onSnooze?: (pr: PullRequest, until: string) => void }) {
+  if (!onSnooze) return null
+  const snooze = (preset: SnoozePreset) => onSnooze(pr, computeSnoozeUntil(new Date(), preset))
+  return (
+    <span className="snooze-actions">
+      <button className="row-action" title="Snooze 1 hour" onClick={() => snooze('1h')}>1h</button>
+      <button className="row-action" title="Snooze until tomorrow 9am" onClick={() => snooze('tomorrow')}>1d</button>
+      <button className="row-action" title="Snooze until Monday 9am" onClick={() => snooze('monday')}>wk</button>
+    </span>
   )
 }
 
@@ -102,6 +116,7 @@ export function NeedsReviewTable({
   hiddenIds = [],
   onHide,
   onUnhide,
+  onSnooze,
   loading
 }: { items: PullRequest[]; loading?: boolean } & HideProps) {
   const [showHidden, setShowHidden] = useState(false)
@@ -120,7 +135,7 @@ export function NeedsReviewTable({
       <td><ReviewersCell pr={pr} /></td>
       <td><ChecksCell pr={pr} /></td>
       <td><AgeCell pr={pr} /></td>
-      <td className="actions"><CopyCell pr={pr} /><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
+      <td className="actions">{!isHidden && <SnoozeCell pr={pr} onSnooze={onSnooze} />}<CopyCell pr={pr} /><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
     </tr>
   )
 

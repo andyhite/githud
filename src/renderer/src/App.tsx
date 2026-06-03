@@ -56,6 +56,7 @@ function Dashboard({
   const applySnapshot = (snap: DashboardSnapshot) => qc.setQueryData(['dashboard'], snap)
   const onHide = (pr: PullRequest) => { void api.hidePr(pr.id, pr.updatedAt).then(applySnapshot) }
   const onUnhide = (id: string) => { void api.unhidePr(id).then(applySnapshot) }
+  const onSnooze = (pr: PullRequest, until: string) => { void api.snoozePr(pr.id, pr.updatedAt, until).then(applySnapshot) }
   const hiddenIds = snapshot?.hiddenPrIds ?? []
   const hiddenSet = new Set(hiddenIds)
   const visibleNeedsReview = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id)).length
@@ -80,6 +81,7 @@ function Dashboard({
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
+              onSnooze={onSnooze}
               loading={loading}
             />
           </div>
@@ -90,6 +92,7 @@ function Dashboard({
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
+              onSnooze={onSnooze}
               loading={loading}
             />
           </div>

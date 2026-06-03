@@ -5,7 +5,7 @@ import { hasToken, loadToken, saveToken, clearToken } from './token-store'
 import { loadSettings, saveSettings } from './settings-store'
 import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { markRead, markAllRead } from './event-store'
-import { hidePr as storeHidePr, unhidePr as storeUnhidePr, loadHidden, resolveHidden } from './hidden-store'
+import { hidePr as storeHidePr, unhidePr as storeUnhidePr, snoozePr as storeSnoozePr, loadHidden, resolveHidden } from './hidden-store'
 import { createClient, validateToken } from './github/client'
 import { filterEvents } from './github/filter-events'
 import { Poller } from './poller'
@@ -160,7 +160,8 @@ function recomputeHidden(): DashboardSnapshot | null {
       id: p.id,
       updatedAt: p.updatedAt
     })),
-    loadHidden()
+    loadHidden(),
+    Date.now()
   )
   const next = { ...lastSnapshot, hiddenPrIds: hiddenIds }
   lastSnapshot = next
@@ -224,7 +225,10 @@ function registerIpc(): void {
     return recomputeHidden() ?? lastSnapshot
   })
 
-  ipcMain.handle('snoozePr', () => { throw new Error('not implemented') })
+  ipcMain.handle('snoozePr', (_e, id: string, updatedAt: string, until: string) => {
+    storeSnoozePr(id, updatedAt, until)
+    return recomputeHidden() ?? lastSnapshot
+  })
   ipcMain.handle('copyToClipboard', (_e, text: string) => { clipboard.writeText(String(text)) })
   ipcMain.handle('getAiStatus', () => ({ hasKey: false }))
   ipcMain.handle('saveAiKey', () => { throw new Error('not implemented') })
