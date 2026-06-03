@@ -94,3 +94,20 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
+
+@layer components {
+  .markdown { font-size: 0.8125rem; line-height: 1.6; color: var(--foreground); }
+  .markdown > :first-child { margin-top: 0; }
+  .markdown > :last-child { margin-bottom: 0; }
+  .markdown h1, .markdown h2, .markdown h3, .markdown h4 { color: var(--card-foreground); font-size: 0.875rem; font-weight: 600; margin: 0.875rem 0 0.375rem; }
+  .markdown p { margin: 0.375rem 0; }
+  .markdown ul, .markdown ol { margin: 0.375rem 0; padding-left: 1.25rem; }
+  .markdown ul { list-style: disc; }
+  .markdown ol { list-style: decimal; }
+  .markdown li { margin: 0.1875rem 0; }
+  .markdown a { color: var(--sev-info); text-decoration: none; }
+  .markdown a:hover { text-decoration: underline; }
+  .markdown code { background: var(--secondary); border-radius: 4px; padding: 1px 5px; font-size: 0.75rem; }
+  .markdown strong { color: var(--card-foreground); }
+  .markdown blockquote { margin: 0.375rem 0; padding-left: 0.625rem; border-left: 3px solid var(--border); color: var(--muted-foreground); }
+}
