@@ -71,6 +71,7 @@ export interface DashboardSnapshot {
   myPullRequests: PullRequest[]
   events: FeedEvent[]
   hiddenPrIds: string[]
+  history: DailyMetric[]
   rateLimit: RateLimit
   error?: string
 }
@@ -86,6 +87,8 @@ export interface Settings {
   quietHours: { start: string; end: string } | null
   // M7: register the app as a macOS login item.
   launchAtLogin: boolean
+  // Charts: collapse state of the trend strip above the tables.
+  chartsCollapsed: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -95,7 +98,8 @@ export const DEFAULT_SETTINGS: Settings = {
   hideBots: true,
   notifyKinds: ['mention', 'changes_requested', 'ci_failed', 'changes_addressed', 'review_re_requested'],
   quietHours: null,
-  launchAtLogin: false
+  launchAtLogin: false,
+  chartsCollapsed: false
 }
 
 export interface NotificationSpec {

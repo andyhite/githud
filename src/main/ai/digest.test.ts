@@ -16,7 +16,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
 function snap(over: Partial<DashboardSnapshot> = {}): DashboardSnapshot {
   return {
     fetchedAt: '2026-06-02T00:00:00Z', viewer: { login: 'me', avatarUrl: '' },
-    needsReview: [pr()], myPullRequests: [], events: [], hiddenPrIds: [],
+    needsReview: [pr()], myPullRequests: [], events: [], hiddenPrIds: [], history: [],
     rateLimit: { remaining: 0, resetAt: '' }, ...over
   }
 }

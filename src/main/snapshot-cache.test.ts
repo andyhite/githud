@@ -16,6 +16,7 @@ const sample: DashboardSnapshot = {
   myPullRequests: [],
   events: [],
   hiddenPrIds: [],
+  history: [],
   rateLimit: { remaining: 5000, resetAt: '2026-06-02T01:00:00Z' }
 }
 

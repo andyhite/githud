@@ -8,6 +8,7 @@ import { subjectStateLabel } from './github/enrich-state'
 import { filterEvents } from './github/filter-events'
 import { appendEvents, loadPrState, savePrState } from './event-store'
 import { loadHidden, saveHidden, resolveHidden } from './hidden-store'
+import { recordSample } from './history-store'
 
 export class Poller {
   constructor(private octokit: Octokit) {}
@@ -99,6 +100,10 @@ export class Poller {
     )
     saveHidden(kept)
 
+    const openWipSize = myPullRequests.reduce((sum, p) => sum + p.additions + p.deletions, 0)
+    const mergeDelta = newEvents.filter((e) => e.kind === 'merged').length
+    const history = recordSample({ reviewQueue: needsReview.length, openWipSize, mergeDelta }, now)
+
     return {
       fetchedAt: nowIso,
       viewer,
@@ -106,6 +111,7 @@ export class Poller {
       myPullRequests,
       events,
       hiddenPrIds: hiddenIds,
+      history,
       rateLimit: { remaining: data.rateLimit?.remaining ?? 0, resetAt: data.rateLimit?.resetAt ?? '' }
     }
   }
