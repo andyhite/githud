@@ -178,3 +178,5 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .triage-chip.triage-amber { background: #d2992222; color: var(--amber); }
 .triage-chip.triage-purple { background: #a371f722; color: #a371f7; }
 .settings-panel select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px; }
+
+.digest-body { white-space: pre-wrap; font: 13px/1.6 inherit; color: var(--text); max-height: 60vh; overflow: auto; margin: 0; }

@@ -10,6 +10,7 @@ import { hasAiKey, saveAiKey as storeAiKey, loadAiKey } from './ai/key-store'
 import { validateAiKey, createAiClient } from './ai/client'
 import { loadCache, saveCache, cacheKey } from './ai/cache'
 import { triagePr } from './ai/triage'
+import { buildDigest } from './ai/digest'
 import { fetchPrDiff } from './github/fetch-diff'
 import type { TriageVerdict } from '@shared/types'
 import { createClient, validateToken } from './github/client'
@@ -294,7 +295,12 @@ function registerIpc(): void {
       return null
     }
   })
-  ipcMain.handle('getDigest', () => { throw new Error('not implemented') })
+  ipcMain.handle('getDigest', async () => {
+    const key = loadAiKey()
+    if (!key) throw new Error('No AI key configured')
+    if (!lastSnapshot) throw new Error('No data yet')
+    return buildDigest(createAiClient(key), lastSnapshot, new Date().toISOString())
+  })
   ipcMain.handle('getReview', () => { throw new Error('not implemented') })
 }
 

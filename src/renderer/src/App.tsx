@@ -9,6 +9,7 @@ import { MyPullRequestsTable } from './components/MyPullRequestsTable'
 import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
+import { Digest } from './components/Digest'
 import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
 import { matchesPr, matchesEvent } from './components/match'
 import { moveSelection } from './hooks/selection'
@@ -52,6 +53,7 @@ function Dashboard({
   useEffect(() => { api.getSettings().then((s) => setTriageSort(s.triageSort)) }, [])
 
   const [aiOn, setAiOn] = useState(false)
+  const [showDigest, setShowDigest] = useState(false)
   const [verdicts, setVerdicts] = useState<Record<string, TriageVerdict>>({})
   const requested = useRef<Set<string>>(new Set())
   useEffect(() => { api.getAiStatus().then((s) => setAiOn(s.hasKey)) }, [])
@@ -103,7 +105,8 @@ function Dashboard({
   const commands: Command[] = [
     { id: 'refresh', label: 'Refresh now', run: () => refetch() },
     { id: 'settings', label: 'Open settings', run: onOpenSettings },
-    { id: 'readall', label: 'Mark all activity read', run: onReadAll }
+    { id: 'readall', label: 'Mark all activity read', run: onReadAll },
+    { id: 'digest', label: 'Catch me up', run: () => setShowDigest(true) }
   ]
 
   return (
@@ -147,12 +150,14 @@ function Dashboard({
           <h2>
             Activity <span className="count">{unread}</span>
             <span className="spacer" />
+            {aiOn && <button className="link-button" onClick={() => setShowDigest(true)}>catch me up</button>}
             {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
           </h2>
           <ActivityFeed events={(snapshot?.events ?? []).filter((e) => matchesEvent(e, query))} onRead={onRead} loading={loading} />
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}
+      {showDigest && <Digest onClose={() => setShowDigest(false)} />}
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
     </div>
   )
