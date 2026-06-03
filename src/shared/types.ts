@@ -57,6 +57,13 @@ export interface RateLimit {
   resetAt: string
 }
 
+export interface DailyMetric {
+  date: string // 'YYYY-MM-DD' in local time
+  reviewQueue: number // needsReview count, last sample of the day
+  openWipSize: number // sum of (additions + deletions) over my open PRs, last sample
+  merges: number // count of my PRs that merged that day (accumulated)
+}
+
 export interface DashboardSnapshot {
   fetchedAt: string
   viewer: User
