@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { FeedEvent, DashboardSnapshot, PullRequest, TriageVerdict, Settings as SettingsType, DEFAULT_SETTINGS } from '@shared/types'
+import { useEffect, useState } from 'react'
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
+import { useHideActions } from './hooks/useHideActions'
+import { useReadState } from './hooks/useReadState'
+import { useTriageVerdicts } from './hooks/useTriageVerdicts'
+import { useKeyboardNav } from './hooks/useKeyboardNav'
+import { useSettings } from './hooks/useSettings'
 import { TopBar } from './components/TopBar'
 import { Panel } from './components/Panel'
 import { PrTable } from './components/PrTable'
@@ -16,7 +19,6 @@ import { DigestPane } from './components/DigestPane'
 import { useDigest } from './hooks/useDigest'
 import { ReviewPanel } from './components/ReviewPanel'
 import { sortNeedsReview, sortMyPrs, sortTeamPrs } from './components/sort-prs'
-import { moveSelection } from './hooks/selection'
 import { CommandPalette, Command } from './components/CommandPalette'
 import { TrendStrip } from './components/TrendStrip'
 import { LabelFilterChips } from './components/LabelFilterChips'
@@ -59,29 +61,14 @@ function Dashboard({
   const [showDigest, setShowDigest] = useState(false)
   const digest = useDigest(aiOn)
   const [reviewId, setReviewId] = useState<string | null>(null)
-  const [verdicts, setVerdicts] = useState<Record<string, TriageVerdict>>({})
-  const requested = useRef<Set<string>>(new Set())
   useEffect(() => { api.getAiStatus().then((s) => setAiOn(s.hasKey)) }, [])
 
-  const [settings, setSettings] = useState<SettingsType>(DEFAULT_SETTINGS)
-  useEffect(() => { api.getSettings().then(setSettings) }, [])
-  const onToggleCharts = () => {
-    const next = { ...settings, chartsCollapsed: !settings.chartsCollapsed }
-    setSettings(next)
-    void api.saveSettings(next)
-  }
+  const { settings, onToggleCharts } = useSettings()
 
-  const qc = useQueryClient()
-  const applyEvents = (events: FeedEvent[]) =>
-    qc.setQueryData<DashboardSnapshot | null>(['dashboard'], (old) => (old ? { ...old, events } : old))
-  const onRead = (id: string) => { void api.markRead(id).then(applyEvents) }
-  const onReadAll = () => { void api.markAllRead().then(applyEvents) }
+  const { onRead, onReadAll } = useReadState()
   const unread = snapshot?.events?.filter((e) => e.unread).length ?? 0
 
-  const applySnapshot = (snap: DashboardSnapshot) => qc.setQueryData(['dashboard'], snap)
-  const onHide = (pr: PullRequest) => { void api.hidePr(pr.id, pr.updatedAt).then(applySnapshot) }
-  const onUnhide = (id: string) => { void api.unhidePr(id).then(applySnapshot) }
-  const onSnooze = (pr: PullRequest, until: string) => { void api.snoozePr(pr.id, pr.updatedAt, until).then(applySnapshot) }
+  const { onHide, onUnhide, onSnooze } = useHideActions()
   const hiddenIds = snapshot?.hiddenPrIds ?? []
   const hiddenSet = new Set(hiddenIds)
   const visibleNeedsReview = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id)).length
@@ -103,34 +90,21 @@ function Dashboard({
   const [showHiddenReview, setShowHiddenReview] = useState(false)
   const [showHiddenMine, setShowHiddenMine] = useState(false)
   const [showHiddenTeam, setShowHiddenTeam] = useState(false)
+  const visibleReviewForTriage = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id))
+  const verdicts = useTriageVerdicts(aiOn, visibleReviewForTriage)
   const reviewItems = sortNeedsReview(snapshot?.needsReview ?? [], verdicts)
   const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
   const mineItems = sortMyPrs(snapshot?.myPullRequests ?? [])
   const hiddenReviewCount = reviewItems.length - visibleReview.length
   const hiddenMineCount = mineItems.filter((p) => hiddenSet.has(p.id)).length
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const tag = (e.target as HTMLElement)?.tagName
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPaletteOpen(true); return }
-      if (e.key === 'j') setSelected((i) => moveSelection(i, 'down', visibleReview.length))
-      if (e.key === 'k') setSelected((i) => moveSelection(i, 'up', visibleReview.length))
-      if (e.key === 'Enter' && selected >= 0 && visibleReview[selected]) api.openExternal(visibleReview[selected].url)
-      if (e.key === 'e' && selected >= 0 && visibleReview[selected]) onHide(visibleReview[selected])
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [visibleReview, selected])
-
-  useEffect(() => {
-    if (!aiOn) return
-    for (const pr of visibleReview) {
-      if (requested.current.has(pr.id)) continue
-      requested.current.add(pr.id)
-      api.getTriage(pr.id).then((v) => { if (v) setVerdicts((m) => ({ ...m, [pr.id]: v })) })
-    }
-  }, [aiOn, visibleReview])
+  useKeyboardNav({
+    visibleReview,
+    selected,
+    setSelected,
+    onHide,
+    onOpenPalette: () => setPaletteOpen(true)
+  })
 
   const commands: Command[] = [
     { id: 'refresh', label: 'Refresh now', run: () => refetch() },
