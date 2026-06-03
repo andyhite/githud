@@ -4,10 +4,11 @@ import type { PullRequest } from '@shared/types'
 
 function pr(over: Partial<PullRequest> = {}): PullRequest {
   return {
-    id: 'p', number: 1, title: 't', url: 'u', repo: 'o/r', branch: 'feature',
+    id: 'p', number: 1, title: 't', url: 'u', repo: 'o/r', branch: 'feature', baseBranch: 'main',
     author: { login: 'me', avatarUrl: '' }, reviewers: [],
     reviewState: 'none', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'success', passed: 1, failed: 0, total: 1 },
+    additions: 0, deletions: 0, changedFiles: 0, unresolvedThreads: 0,
     updatedAt: '2026-06-01T00:00:00Z', isStale: false, isDraft: false, ...over
   }
 }

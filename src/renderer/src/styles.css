@@ -73,9 +73,12 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .pr-meta { display: flex; flex-wrap: wrap; align-items: baseline; font-size: 12px; color: var(--muted); }
 .pr-meta > * + *::before { content: '·'; color: var(--muted); margin: 0 6px; }
 .pr-checks.good { color: var(--green); } .pr-checks.bad { color: var(--red); } .pr-checks.warn { color: var(--amber); }
-/* Compact triage / age / status columns — shrink to content, rest goes to PR. */
+.pr-base { color: var(--amber); }        /* stacked-PR target branch — stands out */
+.pr-threads { color: var(--muted); }
+/* Compact triage / age / status / size columns — shrink to content, rest goes to PR. */
 .pr-table th.col-age, .pr-table td.col-age,
 .pr-table th.col-triage, .pr-table td.col-triage,
+.pr-table th.col-size, .pr-table td.col-size,
 .pr-table th.col-status, .pr-table td.col-status { width: 1%; white-space: nowrap; }
 .pr-table td.col-age { color: var(--muted); }
 .reviewer-chips { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -204,6 +207,12 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .status-tag.st-amber { background: #d2992238; color: #e3b341; }
 .status-tag.st-blue { background: #58a6ff33; color: #79c0ff; }
 .status-tag.st-muted { background: #8b949e22; color: var(--muted); }
+/* Diff-size chip — S small/green → XL big/red so review effort is glanceable. */
+.size-chip { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9px; min-width: 22px; display: inline-block; text-align: center; }
+.size-chip.size-s { background: #3fb95033; color: #56d364; }
+.size-chip.size-m { background: #58a6ff33; color: #79c0ff; }
+.size-chip.size-l { background: #d2992238; color: #e3b341; }
+.size-chip.size-xl { background: #f8514933; color: #ff7b72; }
 .settings-panel select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px; }
 
 /* Rendered markdown (catch-me-up digest, future AI prose). */

@@ -47,8 +47,9 @@ export class Poller {
     const mineNodes: any[] = (data.mine?.nodes ?? []).filter(Boolean)
     const reviewNodes: any[] = (data.needsReview?.nodes ?? []).filter(Boolean)
 
-    const needsReview = normalizePullRequests(reviewNodes, { now, staleThresholdMs })
-    const myPullRequests = normalizePullRequests(mineNodes, { now, staleThresholdMs })
+    const normOpts = { now, staleThresholdMs, excludedAuthors: settings.excludedAuthors, hideBots: settings.hideBots }
+    const needsReview = normalizePullRequests(reviewNodes, normOpts)
+    const myPullRequests = normalizePullRequests(mineNodes, normOpts)
     const viewer = { login: data.viewer?.login ?? '', avatarUrl: data.viewer?.avatarUrl ?? '' }
 
     const nextStates: PRState[] = [

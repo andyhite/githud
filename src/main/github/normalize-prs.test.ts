@@ -14,10 +14,15 @@ function prNode(overrides: any = {}) {
     updatedAt: '2026-06-01T20:00:00Z',
     mergeable: 'MERGEABLE',
     headRefName: 'feature/x',
+    baseRefName: 'main',
+    additions: 40,
+    deletions: 8,
+    changedFiles: 3,
     repository: { nameWithOwner: 'o/api' },
     author: { login: 'jdoe', avatarUrl: 'av' },
     reviewRequests: { nodes: [{ requestedReviewer: { login: 'me', avatarUrl: 'av-me' } }] },
     reviews: { nodes: [] },
+    reviewThreads: { nodes: [] },
     commits: { nodes: [{ commit: { statusCheckRollup: null } }] },
     ...overrides
   }
@@ -133,6 +138,35 @@ describe('normalizePullRequests', () => {
   it('maps the head branch name', () => {
     const [pr] = normalizePullRequests([prNode()], { now, staleThresholdMs: staleMs })
     expect(pr.branch).toBe('feature/x')
+  })
+
+  it('maps base branch and diff stats', () => {
+    const [pr] = normalizePullRequests([prNode({ baseRefName: 'release/2.0', additions: 120, deletions: 30, changedFiles: 7 })], { now, staleThresholdMs: staleMs })
+    expect(pr).toMatchObject({ baseBranch: 'release/2.0', additions: 120, deletions: 30, changedFiles: 7 })
+  })
+
+  it('counts unresolved review threads, excluding bots and excluded authors', () => {
+    const node = prNode({
+      reviewThreads: { nodes: [
+        { isResolved: false, comments: { nodes: [{ author: { login: 'alice' } }] } },   // counts
+        { isResolved: true, comments: { nodes: [{ author: { login: 'bob' } }] } },        // resolved → skip
+        { isResolved: false, comments: { nodes: [{ author: { login: 'dependabot[bot]' } }] } }, // bot → skip
+        { isResolved: false, comments: { nodes: [{ author: { login: 'noisy' } }] } }      // excluded → skip
+      ] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs, excludedAuthors: ['noisy'], hideBots: true })
+    expect(pr.unresolvedThreads).toBe(1)
+  })
+
+  it('counts all unresolved threads when no author filter is given', () => {
+    const node = prNode({
+      reviewThreads: { nodes: [
+        { isResolved: false, comments: { nodes: [{ author: { login: 'dependabot[bot]' } }] } },
+        { isResolved: false, comments: { nodes: [{ author: { login: 'alice' } }] } }
+      ] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.unresolvedThreads).toBe(2) // hideBots defaults off
   })
 
   it('returns an empty array for an empty, null, or null-containing node list', () => {

@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { RiskLevel, TriageVerdict } from '@shared/types'
 import { PrDiff } from '../github/fetch-diff'
 import { AI_MODEL } from './client'
-import { sizeBucket } from './size'
+import { sizeBucket } from '@shared/size'
 import { verdictLabel } from './verdict'
 
 const SYSTEM = `You are a senior code reviewer triaging a pull request diff. Judge the RISK that this PR has real problems a reviewer must catch (bugs, missing tests, risky/edge-case-prone changes, security-sensitive touch points). Be calibrated: most small mechanical changes are low risk. Respond ONLY with the requested JSON.`

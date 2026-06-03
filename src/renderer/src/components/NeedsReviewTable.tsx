@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { PullRequest, TriageVerdict } from '@shared/types'
+import { PullRequest, TriageVerdict, SizeBucket } from '@shared/types'
+import { sizeBucket } from '@shared/size'
 import { api } from '../api'
 import { computeSnoozeUntil } from './snooze'
 
@@ -133,18 +134,38 @@ export function ReviewersCell({ pr }: { pr: PullRequest }) {
   )
 }
 
-// Title (clickable) + a meta line: repo #num · [author] · [checks]. Checks and
-// author live here rather than in their own columns to keep rows compact and
-// every column useful for triage.
+// A PR is "stacked" when it targets something other than the default branch.
+function stackedBase(baseBranch: string): string | null {
+  if (!baseBranch || baseBranch === 'main' || baseBranch === 'master') return null
+  return baseBranch
+}
+
+const SIZE_CLASS: Record<SizeBucket, string> = { S: 'size-s', M: 'size-m', L: 'size-l', XL: 'size-xl' }
+
+export function SizeChip({ pr }: { pr: PullRequest }) {
+  const b = sizeBucket(pr)
+  return (
+    <span className={`size-chip ${SIZE_CLASS[b]}`} title={`+${pr.additions} −${pr.deletions} · ${pr.changedFiles} file${pr.changedFiles === 1 ? '' : 's'}`}>
+      {b}
+    </span>
+  )
+}
+
+// Title (clickable) + a meta line: repo #num · [→ base if stacked] · [author] ·
+// [checks] · [unresolved threads]. These live here rather than in their own
+// columns to keep rows compact and every real column useful for triage.
 export function PrTitleCell({ pr, showAuthor }: { pr: PullRequest; showAuthor?: boolean }) {
   const checks = checksMeta(pr)
+  const base = stackedBase(pr.baseBranch)
   return (
     <button className="pr-link" onClick={() => api.openExternal(pr.url)}>
       <span className="pr-title">{pr.title}</span>
       <span className="pr-meta">
         <span className="pr-repo">{pr.repo} #{pr.number}</span>
+        {base && <span className="pr-base" title={`Targets ${base} — stacked PR`}>→ {base}</span>}
         {showAuthor && <span className="pr-author">{pr.author.login}</span>}
         {checks && <span className={`pr-checks ${checks.cls}`}>{checks.text}</span>}
+        {pr.unresolvedThreads > 0 && <span className="pr-threads">{pr.unresolvedThreads} unresolved</span>}
       </span>
     </button>
   )
@@ -188,6 +209,7 @@ export function NeedsReviewTable({
   const row = (pr: PullRequest, isHidden: boolean) => (
     <tr key={pr.id} className={[isHidden ? 'row-hidden' : '', pr.id === selectedId ? 'row-selected' : ''].filter(Boolean).join(' ') || undefined}>
       <td><PrTitleCell pr={pr} showAuthor /></td>
+      <td className="col-size"><SizeChip pr={pr} /></td>
       {aiOn && <td className="col-triage"><TriageChip verdict={verdicts?.[pr.id]} /></td>}
       <td className="col-age"><AgeCell pr={pr} /></td>
       <td className="actions"><RowActions pr={pr} isHidden={isHidden} aiOn={aiOn} onHide={onHide} onUnhide={onUnhide} onSnooze={onSnooze} onReview={onReview} /></td>
@@ -199,6 +221,7 @@ export function NeedsReviewTable({
       <thead>
         <tr>
           <th>PR</th>
+          <th className="col-size">Size</th>
           {aiOn && <th className="col-triage">Triage</th>}
           <th className="col-age">Age</th>
           <th aria-hidden="true"></th>

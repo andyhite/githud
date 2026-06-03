@@ -5,11 +5,18 @@ const PR_FIELDS = `
   title
   url
   headRefName
+  baseRefName
   isDraft
   updatedAt
   mergeable
+  additions
+  deletions
+  changedFiles
   repository { nameWithOwner }
   author { login avatarUrl }
+  reviewThreads(first: 50) {
+    nodes { isResolved comments(first: 1) { nodes { author { login } } } }
+  }
   reviewRequests(first: 20) {
     nodes { requestedReviewer { ... on User { login avatarUrl } } }
   }

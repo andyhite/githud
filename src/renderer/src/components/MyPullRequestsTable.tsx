@@ -1,6 +1,6 @@
 import { PullRequest } from '@shared/types'
 import {
-  AgeCell, PrTitleCell, ReviewersCell,
+  AgeCell, PrTitleCell, ReviewersCell, SizeChip,
   RowActions, HideProps
 } from './NeedsReviewTable'
 import { mergeReadiness } from './pr-status'
@@ -43,6 +43,7 @@ export function MyPullRequestsTable({
   const row = (pr: PullRequest, isHidden: boolean) => (
     <tr key={pr.id} className={isHidden ? 'row-hidden' : undefined}>
       <td><PrTitleCell pr={pr} /></td>
+      <td className="col-size"><SizeChip pr={pr} /></td>
       <td className="col-status"><StatusCell pr={pr} /></td>
       <td><ReviewersCell pr={pr} /></td>
       <td className="col-age"><AgeCell pr={pr} /></td>
@@ -55,6 +56,7 @@ export function MyPullRequestsTable({
       <thead>
         <tr>
           <th>PR</th>
+          <th className="col-size">Size</th>
           <th className="col-status">Status</th>
           <th>Waiting on</th>
           <th className="col-age">Age</th>

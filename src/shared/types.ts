@@ -17,12 +17,17 @@ export interface PullRequest {
   url: string
   repo: string // "owner/name"
   branch: string // headRefName, for copy-branch
+  baseBranch: string // baseRefName — surfaced when it's not the default (stacked PR)
   author: User
   reviewers: User[]
   reviewState: 'approved' | 'changes_requested' | 'none'
   approvals: number
   mergeable: 'mergeable' | 'conflicting' | 'unknown'
   checks: ChecksSummary
+  additions: number
+  deletions: number
+  changedFiles: number
+  unresolvedThreads: number // open review threads, excluding bot/excluded-author threads
   updatedAt: string
   isStale: boolean
   isDraft: boolean

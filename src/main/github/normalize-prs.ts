@@ -1,8 +1,25 @@
 import { PullRequest, ChecksSummary, User } from '@shared/types'
+import { isBotLogin } from './filter-events'
 
 interface NormalizeOpts {
   now: number
   staleThresholdMs: number
+  // Author filter (mirrors the activity feed) applied to the unresolved-thread
+  // count so bot/excluded-author threads aren't counted.
+  excludedAuthors?: string[]
+  hideBots?: boolean
+}
+
+// Count open review threads, excluding threads opened by a bot (when hideBots)
+// or an excluded author — matching the activity-feed filter.
+function countUnresolvedThreads(node: any, denied: Set<string>, hideBots: boolean): number {
+  return (node.reviewThreads?.nodes ?? []).filter(Boolean).filter((t: any) => {
+    if (t.isResolved) return false
+    const login = t.comments?.nodes?.[0]?.author?.login ?? ''
+    if (hideBots && isBotLogin(login)) return false
+    if (denied.has(login.toLowerCase())) return false
+    return true
+  }).length
 }
 
 const MERGEABLE_MAP: Record<string, PullRequest['mergeable']> = {
@@ -56,6 +73,8 @@ function summarizeChecks(rollup: any): ChecksSummary {
 }
 
 export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRequest[] {
+  const denied = new Set((opts.excludedAuthors ?? []).map((a) => a.toLowerCase()))
+  const hideBots = opts.hideBots ?? false
   return (nodes ?? []).filter(Boolean).map((n) => {
     const review = deriveReview(n.reviews?.nodes ?? [])
     const updatedAtMs = Date.parse(n.updatedAt)
@@ -66,6 +85,7 @@ export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRe
       url: n.url,
       repo: n.repository?.nameWithOwner ?? '',
       branch: n.headRefName ?? '',
+      baseBranch: n.baseRefName ?? '',
       author: user(n.author),
       reviewers: (n.reviewRequests?.nodes ?? [])
         .map((rr: any) => rr.requestedReviewer)
@@ -75,6 +95,10 @@ export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRe
       approvals: review.approvals,
       mergeable: MERGEABLE_MAP[n.mergeable] ?? 'unknown',
       checks: summarizeChecks(n.commits?.nodes?.[0]?.commit?.statusCheckRollup),
+      additions: n.additions ?? 0,
+      deletions: n.deletions ?? 0,
+      changedFiles: n.changedFiles ?? 0,
+      unresolvedThreads: countUnresolvedThreads(n, denied, hideBots),
       updatedAt: n.updatedAt,
       isStale: opts.now - updatedAtMs > opts.staleThresholdMs,
       isDraft: !!n.isDraft

@@ -8,10 +8,11 @@ import type { PullRequest } from '@shared/types'
 function pr(over: Partial<PullRequest> = {}): PullRequest {
   return {
     id: 'p1', number: 88, title: 'Fix nav focus trap', url: 'https://gh/88', repo: 'o/web',
-    branch: 'fix/nav-focus-trap',
+    branch: 'fix/nav-focus-trap', baseBranch: 'main',
     author: { login: 'asmith', avatarUrl: '' }, reviewers: [{ login: 'me', avatarUrl: '' }],
     reviewState: 'changes_requested', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'failure', passed: 11, failed: 1, total: 12 },
+    additions: 40, deletions: 8, changedFiles: 3, unresolvedThreads: 0,
     updatedAt: '2026-06-01T00:00:00Z', isStale: true, isDraft: false, ...over
   }
 }
@@ -40,6 +41,18 @@ describe('NeedsReviewTable', () => {
     expect(screen.queryByText(/quick approve/i)).not.toBeInTheDocument() // no triage column without aiOn
     rerender(<NeedsReviewTable items={[pr({ id: 'p1' })]} aiOn verdicts={{ p1: verdict }} />)
     expect(screen.getByText(/quick approve/i)).toBeInTheDocument()
+  })
+
+  it('shows a size chip, stacked base, and unresolved-thread count', () => {
+    render(<NeedsReviewTable items={[pr({ additions: 40, deletions: 8, changedFiles: 3, baseBranch: 'feature/parent', unresolvedThreads: 3 })]} />)
+    expect(screen.getByText('M')).toBeInTheDocument() // 48 lines / 3 files → M
+    expect(screen.getByText(/→ feature\/parent/)).toBeInTheDocument()
+    expect(screen.getByText(/3 unresolved/)).toBeInTheDocument()
+  })
+
+  it('hides the base marker for PRs targeting the default branch', () => {
+    render(<NeedsReviewTable items={[pr({ baseBranch: 'main' })]} />)
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument()
   })
 
   it('copies the PR link from the actions menu', async () => {
