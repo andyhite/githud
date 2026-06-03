@@ -19,3 +19,9 @@ export function prStateFilePath(): string {
 export function hiddenFilePath(): string {
   return join(app.getPath('userData'), 'hidden.json')
 }
+export function aiKeyFilePath(): string {
+  return join(app.getPath('userData'), 'ai-key.enc')
+}
+export function aiCacheFilePath(): string {
+  return join(app.getPath('userData'), 'ai-cache.json')
+}

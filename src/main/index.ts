@@ -6,6 +6,8 @@ import { loadSettings, saveSettings } from './settings-store'
 import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { markRead, markAllRead } from './event-store'
 import { hidePr as storeHidePr, unhidePr as storeUnhidePr, snoozePr as storeSnoozePr, loadHidden, resolveHidden } from './hidden-store'
+import { hasAiKey, saveAiKey as storeAiKey, loadAiKey } from './ai/key-store'
+import { validateAiKey } from './ai/client'
 import { createClient, validateToken } from './github/client'
 import { filterEvents } from './github/filter-events'
 import { Poller } from './poller'
@@ -262,8 +264,12 @@ function registerIpc(): void {
     return recomputeHidden() ?? lastSnapshot
   })
   ipcMain.handle('copyToClipboard', (_e, text: string) => { clipboard.writeText(String(text)) })
-  ipcMain.handle('getAiStatus', () => ({ hasKey: false }))
-  ipcMain.handle('saveAiKey', () => { throw new Error('not implemented') })
+  ipcMain.handle('getAiStatus', () => ({ hasKey: hasAiKey() }))
+  ipcMain.handle('saveAiKey', async (_e, key: string) => {
+    if (!(await validateAiKey(key))) return { ok: false, error: 'Anthropic rejected the key.' }
+    storeAiKey(key)
+    return { ok: true }
+  })
   ipcMain.handle('getTriage', () => null)
   ipcMain.handle('getDigest', () => { throw new Error('not implemented') })
   ipcMain.handle('getReview', () => { throw new Error('not implemented') })

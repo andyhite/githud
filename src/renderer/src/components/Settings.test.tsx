@@ -7,7 +7,9 @@ import { DEFAULT_SETTINGS } from '@shared/types'
 beforeEach(() => {
   window.api = {
     getSettings: vi.fn().mockResolvedValue(DEFAULT_SETTINGS),
-    saveSettings: vi.fn().mockImplementation((s) => Promise.resolve(s))
+    saveSettings: vi.fn().mockImplementation((s) => Promise.resolve(s)),
+    getAiStatus: vi.fn().mockResolvedValue({ hasKey: false }),
+    saveAiKey: vi.fn().mockResolvedValue({ ok: true })
   } as any
 })
 

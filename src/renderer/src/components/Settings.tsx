@@ -19,6 +19,8 @@ const NOTIFY_OPTIONS: { kind: FeedEventKind; label: string }[] = [
 export function Settings({ onClose }: { onClose: () => void }) {
   const [settings, setSettings] = useState<SettingsType>(DEFAULT_SETTINGS)
   const [authorsText, setAuthorsText] = useState('')
+  const [aiKey, setAiKey] = useState('')
+  const [aiConfigured, setAiConfigured] = useState(false)
 
   useEffect(() => {
     api.getSettings().then((s) => {
@@ -27,9 +29,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
     })
   }, [])
 
+  useEffect(() => { api.getAiStatus().then((s) => setAiConfigured(s.hasKey)) }, [])
+
   async function save() {
     const excludedAuthors = authorsText.split(',').map((a) => a.trim()).filter(Boolean)
     await api.saveSettings({ ...settings, excludedAuthors })
+    if (aiKey.trim()) await api.saveAiKey(aiKey.trim())
     onClose()
   }
 
@@ -130,6 +135,15 @@ export function Settings({ onClose }: { onClose: () => void }) {
           value={authorsText}
           onChange={(e) => setAuthorsText(e.target.value)}
           placeholder="dependabot[bot], some-user"
+        />
+
+        <label htmlFor="aikey">Anthropic API key {aiConfigured && <span className="muted">(configured)</span>}</label>
+        <input
+          id="aikey"
+          type="password"
+          value={aiKey}
+          onChange={(e) => setAiKey(e.target.value)}
+          placeholder={aiConfigured ? '•••••• (leave blank to keep)' : 'sk-ant-…'}
         />
 
         <div className="settings-actions">
