@@ -76,7 +76,7 @@ export function ActivityFeed({
   onRead,
   loading
 }: { events: FeedEvent[]; onRead: (id: string) => void; loading?: boolean }) {
-  if (loading && events.length === 0) return <p className="empty">Loading…</p>
+  if (loading && events.length === 0) return <p className="px-0.5 py-2 text-muted-foreground">Loading…</p>
   if (events.length === 0) return <EmptyState variant="activity" />
   return (
     <div className="flex flex-col gap-2">
