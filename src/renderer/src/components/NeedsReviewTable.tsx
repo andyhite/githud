@@ -1,5 +1,51 @@
+import { useState } from 'react'
 import { PullRequest } from '@shared/types'
 import { api } from '../api'
+
+export interface HideProps {
+  hiddenIds?: string[]
+  onHide?: (pr: PullRequest) => void
+  onUnhide?: (id: string) => void
+}
+
+export function HideCell({
+  pr,
+  hidden,
+  onHide,
+  onUnhide
+}: {
+  pr: PullRequest
+  hidden: boolean
+  onHide?: (pr: PullRequest) => void
+  onUnhide?: (id: string) => void
+}) {
+  return hidden ? (
+    <button className="row-action" title="Unhide this PR" onClick={() => onUnhide?.(pr.id)}>
+      unhide
+    </button>
+  ) : (
+    <button className="row-action hide-action" title="Hide this PR" onClick={() => onHide?.(pr)}>
+      hide
+    </button>
+  )
+}
+
+export function ShowHiddenToggle({
+  count,
+  open,
+  onToggle
+}: {
+  count: number
+  open: boolean
+  onToggle: () => void
+}) {
+  if (count === 0) return null
+  return (
+    <button className="show-hidden" onClick={onToggle}>
+      {open ? 'hide hidden' : `show hidden (${count})`}
+    </button>
+  )
+}
 
 export function ChecksCell({ pr }: { pr: PullRequest }) {
   const c = pr.checks
@@ -42,24 +88,47 @@ export function PrTitleCell({ pr }: { pr: PullRequest }) {
   )
 }
 
-export function NeedsReviewTable({ items }: { items: PullRequest[] }) {
-  if (items.length === 0) return <p className="empty">Nothing needs your review. 🎉</p>
+export function NeedsReviewTable({
+  items,
+  hiddenIds = [],
+  onHide,
+  onUnhide
+}: { items: PullRequest[] } & HideProps) {
+  const [showHidden, setShowHidden] = useState(false)
+  const hiddenSet = new Set(hiddenIds)
+  const visible = items.filter((pr) => !hiddenSet.has(pr.id))
+  const hidden = items.filter((pr) => hiddenSet.has(pr.id))
+
+  if (visible.length === 0 && hidden.length === 0)
+    return <p className="empty">Nothing needs your review. 🎉</p>
+
+  const row = (pr: PullRequest, isHidden: boolean) => (
+    <tr key={pr.id} className={isHidden ? 'row-hidden' : undefined}>
+      <td><PrTitleCell pr={pr} /></td>
+      <td>{pr.author.login}</td>
+      <td><ReviewersCell pr={pr} /></td>
+      <td><ChecksCell pr={pr} /></td>
+      <td><AgeCell pr={pr} /></td>
+      <td className="actions"><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
+    </tr>
+  )
+
   return (
-    <table className="pr-table">
-      <thead>
-        <tr><th>PR</th><th>Author</th><th>Reviewers</th><th>Checks</th><th>Age</th></tr>
-      </thead>
-      <tbody>
-        {items.map((pr) => (
-          <tr key={pr.id}>
-            <td><PrTitleCell pr={pr} /></td>
-            <td>{pr.author.login}</td>
-            <td><ReviewersCell pr={pr} /></td>
-            <td><ChecksCell pr={pr} /></td>
-            <td><AgeCell pr={pr} /></td>
+    <>
+      <table className="pr-table">
+        <thead>
+          <tr>
+            <th>PR</th><th>Author</th><th>Reviewers</th><th>Checks</th><th>Age</th>
+            <th aria-hidden="true"></th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {visible.map((pr) => row(pr, false))}
+          {showHidden && hidden.map((pr) => row(pr, true))}
+        </tbody>
+      </table>
+      {visible.length === 0 && <p className="empty">Nothing needs your review. 🎉</p>}
+      <ShowHiddenToggle count={hidden.length} open={showHidden} onToggle={() => setShowHidden((v) => !v)} />
+    </>
   )
 }

@@ -56,3 +56,39 @@ describe('MyPullRequestsTable', () => {
     expect(screen.getByText(/no open pull requests/i)).toBeInTheDocument()
   })
 })
+
+describe('hide / unhide', () => {
+  it('calls onHide with the PR when the hide button is clicked', async () => {
+    const onHide = vi.fn()
+    render(<NeedsReviewTable items={[pr({ id: 'p1' })]} hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /^hide$/i }))
+    expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+  })
+
+  it('omits hidden rows from the table and counts them in the toggle', () => {
+    const visible = pr({ id: 'p1', title: 'Visible PR' })
+    const hidden = pr({ id: 'p2', title: 'Hidden PR' })
+    render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} onHide={vi.fn()} onUnhide={vi.fn()} />)
+    expect(screen.getByText('Visible PR')).toBeInTheDocument()
+    expect(screen.queryByText('Hidden PR')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /show hidden \(1\)/i })).toBeInTheDocument()
+  })
+
+  it('reveals hidden rows and unhides via the toggle', async () => {
+    const visible = pr({ id: 'p1', title: 'Visible PR' })
+    const hidden = pr({ id: 'p2', title: 'Hidden PR' })
+    const onUnhide = vi.fn()
+    render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} onHide={vi.fn()} onUnhide={onUnhide} />)
+    await userEvent.click(screen.getByRole('button', { name: /show hidden \(1\)/i }))
+    expect(screen.getByText('Hidden PR')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^unhide$/i }))
+    expect(onUnhide).toHaveBeenCalledWith('p2')
+  })
+
+  it('works for MyPullRequestsTable too', async () => {
+    const onHide = vi.fn()
+    render(<MyPullRequestsTable items={[pr({ id: 'm1' })]} hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /^hide$/i }))
+    expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
+  })
+})
