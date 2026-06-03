@@ -16,3 +16,6 @@ export function eventsFilePath(): string {
 export function prStateFilePath(): string {
   return join(app.getPath('userData'), 'pr-state.json')
 }
+export function hiddenFilePath(): string {
+  return join(app.getPath('userData'), 'hidden.json')
+}
