@@ -1,4 +1,5 @@
 import { FeedEventKind } from '@shared/types'
+import { cn } from '@/lib/utils'
 import {
   AtSign,
   CheckCircle2,
@@ -27,11 +28,7 @@ const KIND_ICON: Record<FeedEventKind, LucideIcon> = {
   closed: XCircle
 }
 
-export function EventIcon({ kind }: { kind: FeedEventKind }) {
+export function EventIcon({ kind, className }: { kind: FeedEventKind; className?: string }) {
   const Icon = KIND_ICON[kind]
-  return (
-    <span className="activity-icon">
-      <Icon width={16} height={16} aria-hidden="true" />
-    </span>
-  )
+  return <Icon className={cn('h-4 w-4', className)} aria-hidden="true" />
 }

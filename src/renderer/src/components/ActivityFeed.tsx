@@ -4,6 +4,7 @@ import { relativeAge } from './NeedsReviewTable'
 import { EventIcon } from './icons'
 import { severityForKind } from './activity-severity'
 import { EmptyState } from './EmptyState'
+import { cn } from '@/lib/utils'
 
 const ACTION: Record<FeedEvent['kind'], string> = {
   approved: 'approved',
@@ -21,16 +22,29 @@ const ACTION: Record<FeedEvent['kind'], string> = {
   closed: 'closed'
 }
 
+const SEV = {
+  info: { border: 'border-l-sev-info', icon: 'text-sev-info', unread: 'bg-sev-info/10', hover: 'hover:bg-sev-info/20' },
+  failure: { border: 'border-l-sev-failure', icon: 'text-sev-failure', unread: 'bg-sev-failure/10', hover: 'hover:bg-sev-failure/20' },
+  success: { border: 'border-l-sev-success', icon: 'text-sev-success', unread: 'bg-sev-success/10', hover: 'hover:bg-sev-success/20' },
+  mention: { border: 'border-l-sev-mention', icon: 'text-sev-mention', unread: 'bg-sev-mention/10', hover: 'hover:bg-sev-mention/20' }
+} as const
+
 function EventRow({ event, onRead }: { event: FeedEvent; onRead: (id: string) => void }) {
   const who = event.actor?.login
-  const severity = severityForKind(event.kind)
+  const sev = SEV[severityForKind(event.kind)]
   const open = () => {
     api.openExternal(event.url)
     onRead(event.id)
   }
   return (
     <div
-      className={`activity-item sev-${severity}${event.unread ? ' unread' : ''}`}
+      className={cn(
+        'flex w-full gap-2 rounded-md border border-l-[3px] bg-background p-2 text-left transition-colors',
+        'focus-visible:outline-2 focus-visible:outline-sev-info',
+        sev.border,
+        sev.hover,
+        event.unread && sev.unread
+      )}
       role="button"
       tabIndex={0}
       onClick={open}
@@ -41,15 +55,17 @@ function EventRow({ event, onRead }: { event: FeedEvent; onRead: (id: string) =>
         }
       }}
     >
-      <EventIcon kind={event.kind} />
-      <div className="activity-main">
-        <div className="activity-head">
-          {who && <span className="activity-author">{who}</span>}
-          <span className="activity-action">{ACTION[event.kind]}</span>
-          <span className="activity-time">{relativeAge(event.createdAt)}</span>
+      <span className="flex-none pt-0.5">
+        <EventIcon kind={event.kind} className={sev.icon} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-1.5">
+          {who && <span className="font-semibold text-card-foreground">{who}</span>}
+          <span className="text-muted-foreground">{ACTION[event.kind]}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{relativeAge(event.createdAt)}</span>
         </div>
-        <div className="activity-title">{event.title}</div>
-        <div className="activity-ctx">{event.repo} #{event.number}</div>
+        <div className="text-card-foreground break-words">{event.title}</div>
+        <div className="text-xs text-sev-info">{event.repo} #{event.number}</div>
       </div>
     </div>
   )
@@ -63,7 +79,7 @@ export function ActivityFeed({
   if (loading && events.length === 0) return <p className="empty">Loading…</p>
   if (events.length === 0) return <EmptyState variant="activity" />
   return (
-    <div className="activity-feed">
+    <div className="flex flex-col gap-2">
       {events.map((e) => <EventRow key={e.id} event={e} onRead={onRead} />)}
     </div>
   )
