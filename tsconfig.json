@@ -13,7 +13,10 @@
     "noEmit": true,
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
-    "paths": { "@shared/*": ["src/shared/*"] }
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@/*": ["src/renderer/src/*"]
+    }
   },
   "include": ["src", "test", "vitest.config.ts"]
 }
