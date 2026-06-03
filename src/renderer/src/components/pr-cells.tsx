@@ -1,4 +1,4 @@
-import { PullRequest, TriageVerdict } from '@shared/types'
+import { PullRequest, TriageVerdict, TriageLabel } from '@shared/types'
 import { api } from '../api'
 import { mergeReadiness } from './pr-status'
 import { Chip, type ChipTone } from './Chip'
@@ -95,6 +95,7 @@ export function PrTitleCell({ pr, showAuthor }: { pr: PullRequest; showAuthor?: 
         : 'text-sev-mention'
   return (
     <button
+      type="button"
       className="flex flex-col items-start gap-0.5 text-left w-full"
       onClick={() => api.openExternal(pr.url)}
     >
@@ -134,11 +135,11 @@ export function PrTitleCell({ pr, showAuthor }: { pr: PullRequest; showAuthor?: 
   )
 }
 
-const TRIAGE_META: Record<string, { tone: ChipTone; label: string }> = {
+const TRIAGE_META: Record<TriageLabel, { tone: ChipTone; label: string }> = {
   quick_approve: { tone: 'success', label: 'quick approve' },
   careful_read: { tone: 'info', label: 'careful read' },
   likely_changes: { tone: 'mention', label: 'likely changes' },
-  big_effort: { tone: 'info', label: 'big effort' }
+  big_effort: { tone: 'effort', label: 'big effort' }
 }
 
 export function TriageChip({ verdict }: { verdict?: TriageVerdict }) {

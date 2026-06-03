@@ -12,6 +12,7 @@ const chip = cva(
         success: 'bg-sev-success/15 text-sev-success',
         failure: 'bg-sev-failure/15 text-sev-failure',
         mention: 'bg-sev-mention/15 text-sev-mention',
+        effort: 'bg-sev-effort/15 text-sev-effort',
         count: 'bg-secondary text-secondary-foreground'
       }
     },

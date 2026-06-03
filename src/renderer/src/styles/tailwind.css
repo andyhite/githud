@@ -29,6 +29,7 @@
   --sev-success: oklch(0.62 0.17 150);
   --sev-failure: oklch(0.58 0.22 27);
   --sev-mention: oklch(0.68 0.14 75);
+  --sev-effort: oklch(0.62 0.2 300);
 }
 
 .dark {
@@ -56,6 +57,7 @@
   --sev-success: oklch(0.75 0.18 150);
   --sev-failure: oklch(0.68 0.21 25);
   --sev-mention: oklch(0.78 0.13 80);
+  --sev-effort: oklch(0.72 0.17 300);
 }
 
 @theme inline {
@@ -83,6 +85,7 @@
   --color-sev-success: var(--sev-success);
   --color-sev-failure: var(--sev-failure);
   --color-sev-mention: var(--sev-mention);
+  --color-sev-effort: var(--sev-effort);
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
