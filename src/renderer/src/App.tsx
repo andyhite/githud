@@ -10,6 +10,7 @@ import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
 import { Digest } from './components/Digest'
+import { ReviewPanel } from './components/ReviewPanel'
 import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
 import { matchesPr, matchesEvent } from './components/match'
 import { moveSelection } from './hooks/selection'
@@ -54,6 +55,7 @@ function Dashboard({
 
   const [aiOn, setAiOn] = useState(false)
   const [showDigest, setShowDigest] = useState(false)
+  const [reviewId, setReviewId] = useState<string | null>(null)
   const [verdicts, setVerdicts] = useState<Record<string, TriageVerdict>>({})
   const requested = useRef<Set<string>>(new Set())
   useEffect(() => { api.getAiStatus().then((s) => setAiOn(s.hasKey)) }, [])
@@ -132,6 +134,8 @@ function Dashboard({
               selectedId={visibleReview[selected]?.id}
               loading={loading}
               verdicts={verdicts}
+              aiOn={aiOn}
+              onReview={setReviewId}
             />
           </div>
           <div className="panel">
@@ -159,6 +163,7 @@ function Dashboard({
       {showSettings && <Settings onClose={onCloseSettings} />}
       {showDigest && <Digest onClose={() => setShowDigest(false)} />}
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
+      {reviewId && <ReviewPanel prId={reviewId} onClose={() => setReviewId(null)} />}
     </div>
   )
 }

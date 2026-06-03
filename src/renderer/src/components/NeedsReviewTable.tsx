@@ -133,8 +133,10 @@ export function NeedsReviewTable({
   onSnooze,
   selectedId,
   loading,
-  verdicts
-}: { items: PullRequest[]; loading?: boolean; selectedId?: string; verdicts?: Record<string, TriageVerdict> } & HideProps) {
+  verdicts,
+  aiOn,
+  onReview
+}: { items: PullRequest[]; loading?: boolean; selectedId?: string; verdicts?: Record<string, TriageVerdict>; aiOn?: boolean; onReview?: (id: string) => void } & HideProps) {
   const [showHidden, setShowHidden] = useState(false)
   const hiddenSet = new Set(hiddenIds)
   const visible = items.filter((pr) => !hiddenSet.has(pr.id))
@@ -151,7 +153,7 @@ export function NeedsReviewTable({
       <td><ReviewersCell pr={pr} /></td>
       <td><ChecksCell pr={pr} /></td>
       <td><AgeCell pr={pr} /></td>
-      <td className="actions">{!isHidden && <SnoozeCell pr={pr} onSnooze={onSnooze} />}<CopyCell pr={pr} /><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
+      <td className="actions">{!isHidden && aiOn && onReview && <button className="row-action" title="AI pre-review" onClick={() => onReview(pr.id)}>review</button>}{!isHidden && <SnoozeCell pr={pr} onSnooze={onSnooze} />}<CopyCell pr={pr} /><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
     </tr>
   )
 

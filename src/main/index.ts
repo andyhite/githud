@@ -11,8 +11,9 @@ import { validateAiKey, createAiClient } from './ai/client'
 import { loadCache, saveCache, cacheKey } from './ai/cache'
 import { triagePr } from './ai/triage'
 import { buildDigest } from './ai/digest'
+import { reviewPr } from './ai/review'
 import { fetchPrDiff } from './github/fetch-diff'
-import type { TriageVerdict } from '@shared/types'
+import type { TriageVerdict, ReviewResult } from '@shared/types'
 import { createClient, validateToken } from './github/client'
 import { filterEvents } from './github/filter-events'
 import { Poller } from './poller'
@@ -301,7 +302,23 @@ function registerIpc(): void {
     if (!lastSnapshot) throw new Error('No data yet')
     return buildDigest(createAiClient(key), lastSnapshot, new Date().toISOString())
   })
-  ipcMain.handle('getReview', () => { throw new Error('not implemented') })
+  ipcMain.handle('getReview', async (_e, prId: string): Promise<ReviewResult> => {
+    const key = loadAiKey()
+    if (!key) throw new Error('No AI key configured')
+    if (!lastSnapshot) throw new Error('No data yet')
+    const pr = [...lastSnapshot.needsReview, ...lastSnapshot.myPullRequests].find((p) => p.id === prId)
+    if (!pr) throw new Error('PR not found')
+    const headKey = pr.updatedAt
+    const cache = loadCache()
+    const cached = cache[cacheKey('review', prId, headKey)] as ReviewResult | undefined
+    if (cached) return cached
+    if (!ensurePoller() || !poller) throw new Error('No token configured')
+    const diff = await fetchPrDiff(poller.client, pr.repo, pr.number)
+    const result = await reviewPr(createAiClient(key), prId, headKey, pr.title, diff, new Date().toISOString())
+    cache[cacheKey('review', prId, headKey)] = result
+    saveCache(cache)
+    return result
+  })
 }
 
 app.whenReady().then(async () => {
