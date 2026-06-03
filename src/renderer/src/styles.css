@@ -72,6 +72,22 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .good { color: var(--green); } .bad { color: var(--red); }
 .warn { color: var(--amber); } .muted { color: var(--muted); }
 
+/* hide / unhide affordances */
+.pr-table tbody tr:hover { background: var(--line); }
+.pr-table td.actions { width: 1%; white-space: nowrap; text-align: right; }
+.pr-table .row-action {
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer;
+  opacity: 0; transition: opacity .12s, background .12s, color .12s, border-color .12s; }
+.pr-table tbody tr:hover .row-action { opacity: 1; }
+.pr-table .row-action:hover { background: var(--bg); color: var(--bright); border-color: var(--border); }
+.pr-table tr.row-hidden td { opacity: .5; }
+.pr-table tr.row-hidden .row-action { opacity: 1; } /* unhide always visible on revealed rows */
+.show-hidden {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 12px; cursor: pointer; padding: 6px 2px; }
+.show-hidden:hover { color: var(--bright); text-decoration: underline; }
+
 .activity-feed { display: flex; flex-direction: column; gap: 8px; }
 .activity-item { display: flex; gap: 8px; width: 100%; text-align: left; cursor: pointer;
   background: var(--bg); border: 1px solid var(--line); border-left-width: 3px;
