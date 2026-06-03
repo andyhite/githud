@@ -269,7 +269,7 @@ function registerIpc(): void {
     storeSnoozePr(id, updatedAt, until)
     return recomputeHidden() ?? lastSnapshot
   })
-  ipcMain.handle('copyToClipboard', (_e, text: string) => { clipboard.writeText(String(text)) })
+  ipcMain.handle('copyToClipboard', (_e, text: string) => { clipboard.writeText(text ?? '') })
   ipcMain.handle('getAiStatus', () => ({ hasKey: hasAiKey() }))
   ipcMain.handle('saveAiKey', async (_e, key: string) => {
     if (!(await validateAiKey(key))) return { ok: false, error: 'Anthropic rejected the key.' }

@@ -62,7 +62,9 @@ export function RowActions({
             <button role="menuitem" onClick={() => act(() => onReview(pr.id))}>Pre-review (AI)</button>
           )}
           <button role="menuitem" onClick={() => act(() => api.copyToClipboard(pr.url))}>Copy PR link</button>
-          <button role="menuitem" onClick={() => act(() => api.copyToClipboard(pr.branch))}>Copy branch name</button>
+          {pr.branch && (
+            <button role="menuitem" onClick={() => act(() => api.copyToClipboard(pr.branch))}>Copy branch name</button>
+          )}
           {!isHidden && onSnooze && (
             <>
               <button role="menuitem" onClick={() => act(() => onSnooze(pr, computeSnoozeUntil(new Date(), '1h')))}>Snooze 1 hour</button>
