@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DashboardSnapshot } from '@shared/types'
+import { nextPollDelay, formatInterval, BASE_POLL_MS } from '@shared/poll-schedule'
 import { relativeAge } from './NeedsReviewTable'
 
 // Data older than ~2x the 30s poll interval is treated as stale.
@@ -41,6 +42,15 @@ export function TopBar({
   const lowBudget = !!rl && !!rl.resetAt && rl.remaining <= RATE_LIMIT_WARN
   const resetInMin = rl?.resetAt ? Math.max(1, Math.round((Date.parse(rl.resetAt) - Date.now()) / 60_000)) : 0
 
+  // The interval the main poll loop will use next, derived from the same rate
+  // limit (nextPollDelay is shared). Grows above the base when the API budget
+  // is running low, so showing it explains why refreshes slow down.
+  const pollMs = rl ? nextPollDelay(rl, Date.now()) : BASE_POLL_MS
+  const throttled = pollMs > BASE_POLL_MS
+  const pollTitle = throttled
+    ? `Auto-refresh slowed to conserve the GitHub API budget (resets in ~${resetInMin}m)`
+    : 'Auto-refresh interval'
+
   return (
     <header className="top-bar">
       <span className="brand">githud</span>
@@ -61,6 +71,11 @@ export function TopBar({
         ) : (
           <span className="refreshed">updated {relativeAge(snapshot.fetchedAt)} ago</span>
         ))}
+      {snapshot && (
+        <span className={throttled ? 'poll-interval throttled' : 'poll-interval'} title={pollTitle}>
+          ↻ {formatInterval(pollMs)}
+        </span>
+      )}
       <button onClick={onRefresh} disabled={isFetching} aria-label="Refresh" title="Refresh">
         {isFetching ? '↻…' : '↻'}
       </button>

@@ -34,6 +34,8 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .badge.bad { background: #f8514922; color: var(--red); }
 .badge.warn { background: #d2992222; color: var(--amber); }
 .refreshed { color: var(--muted); font-size: 12px; }
+.poll-interval { color: var(--muted); font-size: 12px; opacity: 0.85; cursor: default; }
+.poll-interval.throttled { color: var(--amber); opacity: 1; }
 
 .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 12px;
   padding: 12px; overflow: hidden; flex: 1; }
