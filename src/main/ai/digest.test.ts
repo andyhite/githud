@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { digestFingerprint } from './digest'
-import type { DashboardSnapshot, PullRequest } from '@shared/types'
+import { digestFingerprint, eventsSince, deltaPayload } from './digest'
+import type { DashboardSnapshot, PullRequest, FeedEvent } from '@shared/types'
+
+function evt(over: Partial<FeedEvent> = {}): FeedEvent {
+  return { id: 'e1', kind: 'mention', repo: 'o/r', number: 1, title: 't', url: 'u', createdAt: '2026-06-03T10:00:00Z', unread: true, ...over }
+}
 
 function pr(over: Partial<PullRequest> = {}): PullRequest {
   return {
@@ -36,5 +40,35 @@ describe('digestFingerprint', () => {
     const base = snap({ events: [{ id: 'e1', kind: 'mention', repo: 'o/r', number: 1, title: 't', url: 'u', createdAt: 'x', unread: true }] })
     const read = snap({ events: [{ id: 'e1', kind: 'mention', repo: 'o/r', number: 1, title: 't', url: 'u', createdAt: 'x', unread: false }] })
     expect(digestFingerprint(read)).not.toBe(digestFingerprint(base))
+  })
+})
+
+describe('eventsSince', () => {
+  it('returns only events strictly newer than sinceAt', () => {
+    const events = [
+      evt({ id: 'old', createdAt: '2026-06-03T09:00:00Z' }),
+      evt({ id: 'same', createdAt: '2026-06-03T10:00:00Z' }),
+      evt({ id: 'new', createdAt: '2026-06-03T11:00:00Z' })
+    ]
+    expect(eventsSince(events, '2026-06-03T10:00:00Z').map((e) => e.id)).toEqual(['new'])
+  })
+
+  it('returns [] when nothing is newer', () => {
+    expect(eventsSince([evt({ createdAt: '2026-06-03T08:00:00Z' })], '2026-06-03T10:00:00Z')).toEqual([])
+  })
+})
+
+describe('deltaPayload', () => {
+  it('includes only events since sinceAt and the PRs they touch', () => {
+    const s = snap({
+      needsReview: [pr({ repo: 'o/r', number: 7, title: 'Touched' }), pr({ repo: 'o/r', number: 9, title: 'Untouched' })],
+      events: [
+        evt({ id: 'old', repo: 'o/r', number: 7, createdAt: '2026-06-03T08:00:00Z' }),
+        evt({ id: 'new', kind: 'approved', repo: 'o/r', number: 7, createdAt: '2026-06-03T11:00:00Z', actor: { login: 'alice', avatarUrl: '' } })
+      ]
+    })
+    const out = deltaPayload(s, '2026-06-03T10:00:00Z')
+    expect(out.newEvents).toEqual([{ kind: 'approved', repo: 'o/r', number: 7, who: 'alice' }])
+    expect(out.context).toEqual([{ repo: 'o/r', number: 7, title: 'Touched', checks: 'success' }])
   })
 })

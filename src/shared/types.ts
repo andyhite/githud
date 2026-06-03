@@ -133,6 +133,10 @@ export interface TriageVerdict {
 export interface DigestResult {
   markdown: string
   generatedAt: string
+  mode: 'full' | 'delta'
+  // delta-only metadata (the window the sentence covers + how many events)
+  coveredSince?: string
+  eventCount?: number
 }
 
 export interface ReviewFinding {
@@ -159,6 +163,7 @@ export interface GithudApi {
   getSnapshot(): Promise<DashboardSnapshot | null>
   refresh(): Promise<DashboardSnapshot>
   onSnapshot(cb: (snap: DashboardSnapshot) => void): () => void
+  onDigest(cb: (digest: DigestResult) => void): () => void
   getAuthStatus(): Promise<AuthStatus>
   saveToken(token: string): Promise<{ ok: boolean; login?: string; error?: string }>
   getSettings(): Promise<Settings>
