@@ -33,6 +33,7 @@ loop) — see the AI section below.
 ```
 src/
   shared/types.ts          # DashboardSnapshot, PullRequest, FeedEvent, Settings, GithudApi, + AI types (TriageVerdict/DigestResult/ReviewResult) — the contract
+  shared/size.ts           # sizeBucket(diffstat) -> S/M/L/XL  (pure; used by both the size column and the AI triage)
   main/
     index.ts               # window + IPC handlers + 30s poll loop + native notifications + navigation guard + tray/dock badge + login item
     poller.ts              # Poller.refresh(settings) -> DashboardSnapshot (orchestrates github/*); `get client()` exposes the Octokit to AI handlers
@@ -44,7 +45,7 @@ src/
     settings-store.ts, snapshot-cache.ts, paths.ts, safe-url.ts
     github/
       client.ts            # Octokit factory + validateToken
-      queries.ts           # GraphQL query strings (PR tables + headRefName + per-PR reviews/comments/reviewRequests/checks windows)
+      queries.ts           # GraphQL query strings (PR tables + headRefName/baseRefName + diff stats + reviewThreads + per-PR reviews/comments/reviewRequests/checks windows)
       normalize-prs.ts     # GraphQL nodes -> PullRequest[]  (pure, heavily tested)
       pr-state.ts          # GraphQL node -> PRState (diffable: reviews/comments/CI/headOid/reviewRequestedLogins)  (pure)
       derive-events.ts     # diff prev vs next PRState -> FeedEvent[]  (pure, heavily tested)
@@ -55,7 +56,7 @@ src/
       key-store.ts         # Anthropic key encrypted via safeStorage (mirrors token-store)
       client.ts            # Anthropic factory + validateAiKey; AI_MODEL = 'claude-opus-4-8'
       cache.ts             # on-disk result cache keyed by `${kind}:${prId}:${headKey}`  (pure helpers + fs glue)
-      size.ts, verdict.ts  # deterministic diffstat→S/M/L/XL bucket + (size,risk)→TriageLabel  (pure, tested)
+      verdict.ts           # (size,risk)→TriageLabel  (pure, tested; size bucket lives in src/shared/size.ts)
       triage.ts            # one cached Claude risk call -> TriageVerdict
       digest.ts            # "catch me up" standup from the snapshot
       review.ts            # first-pass advisory review of a diff
