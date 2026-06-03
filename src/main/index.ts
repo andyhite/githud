@@ -89,10 +89,13 @@ function createWindow(): void {
 function applyLoginItem(settings: Settings): void {
   if (process.platform !== 'darwin' && process.platform !== 'win32') return
   try {
+    // Only touch the OS when the desired state differs from the current one.
+    // setLoginItemSettings logs a native "Operation not permitted" error to
+    // stderr on unsigned/dev macOS builds (can't be caught — it doesn't throw),
+    // so skipping the no-op call keeps the default (disabled) path silent.
+    if (app.getLoginItemSettings().openAtLogin === settings.launchAtLogin) return
     app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin })
   } catch (err) {
-    // Unsigned / dev builds on recent macOS can't register a login item
-    // ("Operation not permitted"). Non-fatal — it works in a signed build.
     console.warn('[login-item] could not update launch-at-login (expected on unsigned/dev builds):', err)
   }
 }
