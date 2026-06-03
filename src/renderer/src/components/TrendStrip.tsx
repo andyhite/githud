@@ -59,8 +59,9 @@ export function TrendStrip({
   ]
 
   return (
-    <div>
+    <div className="px-3 pt-2">
       <button
+        type="button"
         className="text-xs text-muted-foreground hover:text-card-foreground"
         onClick={onToggleCollapsed}
         aria-label={collapsed ? 'Show trends' : 'Hide trends'}

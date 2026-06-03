@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { api } from '../api'
 
 export function TokenSetup({ onSaved }: { onSaved: (login: string) => void }) {
   const [token, setToken] = useState('')
@@ -12,7 +13,7 @@ export function TokenSetup({ onSaved }: { onSaved: (login: string) => void }) {
   async function submit() {
     setBusy(true)
     setError(null)
-    const res = await window.api.saveToken(token.trim())
+    const res = await api.saveToken(token.trim())
     setBusy(false)
     if (res.ok && res.login) onSaved(res.login)
     else setError(res.error ?? 'Failed to save token')
@@ -33,7 +34,7 @@ export function TokenSetup({ onSaved }: { onSaved: (login: string) => void }) {
           <button
             type="button"
             className="text-sev-info hover:underline"
-            onClick={() => window.api.openExternal('https://github.com/settings/tokens')}
+            onClick={() => api.openExternal('https://github.com/settings/tokens')}
           >
             Open GitHub token settings →
           </button>
