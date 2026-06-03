@@ -21,6 +21,7 @@ import { diffSnapshots } from './notifier'
 import { isSafeExternalUrl } from './safe-url'
 import { visibleNeedsReviewCount, dockBadge } from './tray-label'
 import { nextPollDelay, BASE_POLL_MS } from '@shared/poll-schedule'
+import { parseRateLimitError } from './github/rate-limit'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -199,17 +200,28 @@ async function doPoll(): Promise<DashboardSnapshot> {
     // Surface the underlying failure in the logs — the renderer only shows a
     // generic "offline — retrying" badge, so this is the only place to see why.
     console.error('[poll] refresh failed:', err?.status ?? '', err?.message ?? err, err?.errors ?? '')
+    // If GitHub told us we're rate-limited, use the authoritative reset window
+    // from the error headers so the adaptive loop backs off exactly — rather
+    // than off the last successful poll's now-stale numbers.
+    const parsedRl = parseRateLimitError(err, Date.now())
+    if (parsedRl) {
+      console.log(`[poll] rate-limited; resets at ${parsedRl.resetAt} (remaining=${parsedRl.remaining})`)
+    }
     // Keep last good data; surface the error on a degraded snapshot.
     const degraded: DashboardSnapshot = lastSnapshot
-      ? { ...lastSnapshot, error: err?.message ?? 'Refresh failed' }
+      ? { ...lastSnapshot, error: err?.message ?? 'Refresh failed', rateLimit: parsedRl ?? lastSnapshot.rateLimit }
       : {
           fetchedAt: new Date().toISOString(),
           viewer: { login: viewerLogin ?? '', avatarUrl: '' },
           needsReview: [], myPullRequests: [], events: [], hiddenPrIds: [],
           history: [],
-          rateLimit: { remaining: 0, resetAt: '' },
+          rateLimit: parsedRl ?? { remaining: 0, resetAt: '' },
           error: err?.message ?? 'Refresh failed'
         }
+    // Persist the accurate rate limit so scheduleNextPoll reads it (the success
+    // path overwrites lastSnapshot on the next good poll). Only when we actually
+    // parsed one — otherwise leave the last good snapshot untouched.
+    if (parsedRl) lastSnapshot = degraded
     sendSnapshot(degraded)
     return degraded
   }

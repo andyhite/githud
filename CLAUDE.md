@@ -36,7 +36,7 @@ src/
   shared/size.ts           # sizeBucket(diffstat) -> S/M/L/XL  (pure; used by both the size column and the AI triage)
   shared/poll-schedule.ts  # nextPollDelay(rateLimit, now) + formatInterval  (pure, tested; adaptive poll backoff, used by the main loop AND the TopBar interval display)
   main/
-    index.ts               # window + IPC handlers + adaptive poll loop (self-scheduling setTimeout via nextPollDelay; ~30s base, backs off as the GraphQL budget runs low) + native notifications + navigation guard + tray/dock badge + login item
+    index.ts               # window + IPC handlers + adaptive poll loop (self-scheduling setTimeout via nextPollDelay; ~30s base, backs off as the GraphQL budget runs low; on a quota error, parseRateLimitError pins the backoff to the authoritative reset window) + native notifications + navigation guard + tray/dock badge + login item
     poller.ts              # Poller.refresh(settings) -> DashboardSnapshot (orchestrates github/*); `get client()` exposes the Octokit to AI handlers
     notifier.ts            # diffSnapshots(prev, next, {notifyKinds, now, quietHours}) -> NotificationSpec[]  (pure; per-kind filter + quiet hours; caps at 5)
     event-store.ts         # FeedEvent merge/read-state + PRState persistence (pure helpers + fs glue)
@@ -53,6 +53,7 @@ src/
       derive-events.ts     # diff prev vs next PRState -> FeedEvent[]  (pure, heavily tested)
       enrich-state.ts      # REST PR/issue payload -> merged/closed/reopened label  (pure)
       filter-events.ts     # denylist + hide-bots  (pure)
+      rate-limit.ts        # parseRateLimitError(err, now) -> RateLimit from Octokit error headers  (pure, tested; feeds the adaptive backoff on quota errors)
       fetch-diff.ts        # REST PR meta + .diff (capped) for the AI layer  (glue)
     ai/                    # opt-in; all glue EXCEPT size/verdict (pure, tested)
       key-store.ts         # Anthropic key encrypted via safeStorage (mirrors token-store)
