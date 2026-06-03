@@ -100,6 +100,16 @@ body {
   line-height: 1.5;
 }
 
+/* In Tailwind v4 the bare `border` utility defaults its color to currentColor
+   (the text color → near-white in dark mode). shadcn relies on this base rule
+   to default every border to the subtle --border token instead. Without it,
+   every bordered card/panel renders a harsh full-opacity outline. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+}
+
 /* Thin, theme-matched scrollbars for all scroll containers. */
 * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 *::-webkit-scrollbar { width: 8px; height: 8px; }
