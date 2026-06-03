@@ -112,6 +112,13 @@ describe('deriveEvents', () => {
     expect(kinds).toContain('changes_addressed')
   })
 
+  it('does not emit changes_addressed when headOid advances without a prior viewer change-request', () => {
+    const before = pr({ id: 'Z', source: 'review', headOid: 'oid1', reviews: [{ id: 'r1', state: 'APPROVED', authorLogin: 'me', authorAvatarUrl: '', url: 'u', submittedAt: NOW }] })
+    const after = pr({ id: 'Z', source: 'review', headOid: 'oid2', reviews: [{ id: 'r1', state: 'APPROVED', authorLogin: 'me', authorAvatarUrl: '', url: 'u', submittedAt: NOW }] })
+    const kinds = deriveEvents([before], [after], 'me', NOW).map((e) => e.kind)
+    expect(kinds).not.toContain('changes_addressed')
+  })
+
   it('falls back to `now` when a review/comment has no source timestamp', () => {
     const prev = [pr()]
     const next = [pr({
