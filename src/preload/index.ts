@@ -15,7 +15,9 @@ const api: GithudApi = {
   saveSettings: (settings: Settings) => ipcRenderer.invoke('saveSettings', settings),
   openExternal: (url: string) => ipcRenderer.invoke('openExternal', url),
   markRead: (id: string) => ipcRenderer.invoke('markRead', id),
-  markAllRead: () => ipcRenderer.invoke('markAllRead')
+  markAllRead: () => ipcRenderer.invoke('markAllRead'),
+  hidePr: (id: string, updatedAt: string) => ipcRenderer.invoke('hidePr', id, updatedAt),
+  unhidePr: (id: string) => ipcRenderer.invoke('unhidePr', id)
 }
 
 contextBridge.exposeInMainWorld('api', api)

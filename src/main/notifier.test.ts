@@ -7,7 +7,7 @@ function ev(id: string, over: Partial<FeedEvent> = {}): FeedEvent {
 }
 
 function snap(events: FeedEvent[]): DashboardSnapshot {
-  return { fetchedAt: 'x', viewer: { login: 'me', avatarUrl: '' }, needsReview: [], myPullRequests: [], events, rateLimit: { remaining: 0, resetAt: '' } }
+  return { fetchedAt: 'x', viewer: { login: 'me', avatarUrl: '' }, needsReview: [], myPullRequests: [], events, hiddenPrIds: [], rateLimit: { remaining: 0, resetAt: '' } }
 }
 
 describe('diffSnapshots', () => {

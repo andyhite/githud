@@ -5,6 +5,7 @@ import { hasToken, loadToken, saveToken, clearToken } from './token-store'
 import { loadSettings, saveSettings } from './settings-store'
 import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { markRead, markAllRead } from './event-store'
+import { hidePr as storeHidePr, unhidePr as storeUnhidePr, loadHidden, resolveHidden } from './hidden-store'
 import { createClient, validateToken } from './github/client'
 import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
@@ -84,7 +85,7 @@ async function doPoll(): Promise<DashboardSnapshot> {
       : {
           fetchedAt: new Date().toISOString(),
           viewer: { login: viewerLogin ?? '', avatarUrl: '' },
-          needsReview: [], myPullRequests: [], events: [],
+          needsReview: [], myPullRequests: [], events: [], hiddenPrIds: [],
           rateLimit: { remaining: 0, resetAt: '' },
           error: err?.message ?? 'Refresh failed'
         }
@@ -103,6 +104,23 @@ function startPolling(): void {
   if (timer) return
   timer = setInterval(() => { void runPoll() }, POLL_INTERVAL_MS)
   void runPoll()
+}
+
+// Recompute hiddenPrIds against the in-memory snapshot (no network) and push it.
+function recomputeHidden(): DashboardSnapshot | null {
+  if (!lastSnapshot) return null
+  const { hiddenIds } = resolveHidden(
+    [...lastSnapshot.needsReview, ...lastSnapshot.myPullRequests].map((p) => ({
+      id: p.id,
+      updatedAt: p.updatedAt
+    })),
+    loadHidden()
+  )
+  const next = { ...lastSnapshot, hiddenPrIds: hiddenIds }
+  lastSnapshot = next
+  cacheSnapshot(next)
+  sendSnapshot(next)
+  return next
 }
 
 function registerIpc(): void {
@@ -138,6 +156,15 @@ function registerIpc(): void {
 
   ipcMain.handle('markRead', (_e, id: string) => markRead(id))
   ipcMain.handle('markAllRead', () => markAllRead())
+
+  ipcMain.handle('hidePr', (_e, id: string, updatedAt: string) => {
+    storeHidePr(id, updatedAt)
+    return recomputeHidden() ?? lastSnapshot
+  })
+  ipcMain.handle('unhidePr', (_e, id: string) => {
+    storeUnhidePr(id)
+    return recomputeHidden() ?? lastSnapshot
+  })
 }
 
 app.whenReady().then(async () => {
