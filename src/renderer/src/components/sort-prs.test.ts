@@ -18,11 +18,17 @@ describe('sortNeedsReview', () => {
     const old = pr({ id: 'old', updatedAt: '2026-05-30T00:00:00Z' })
     expect(sortNeedsReview([recent, old]).map((p) => p.id)).toEqual(['old', 'recent'])
   })
-  it('orders by verdict when quick-first with verdicts supplied', () => {
+  it('breaks ties (same age) by triage verdict — quickest effort first', () => {
     const a = pr({ id: 'a', updatedAt: '2026-06-01T00:00:00Z' })
-    const b = pr({ id: 'b', updatedAt: '2026-06-02T00:00:00Z' })
+    const b = pr({ id: 'b', updatedAt: '2026-06-01T00:00:00Z' }) // same age as a
     const verdicts = { a: { label: 'big_effort' } as any, b: { label: 'quick_approve' } as any }
-    expect(sortNeedsReview([a, b], 'quick-first', verdicts).map((p) => p.id)).toEqual(['b', 'a'])
+    expect(sortNeedsReview([a, b], verdicts).map((p) => p.id)).toEqual(['b', 'a'])
+  })
+  it('keeps age as the primary key regardless of verdict', () => {
+    const oldBig = pr({ id: 'oldBig', updatedAt: '2026-05-30T00:00:00Z' })
+    const newQuick = pr({ id: 'newQuick', updatedAt: '2026-06-02T00:00:00Z' })
+    const verdicts = { oldBig: { label: 'big_effort' } as any, newQuick: { label: 'quick_approve' } as any }
+    expect(sortNeedsReview([newQuick, oldBig], verdicts).map((p) => p.id)).toEqual(['oldBig', 'newQuick'])
   })
 })
 

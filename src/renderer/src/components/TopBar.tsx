@@ -31,8 +31,10 @@ export function TopBar({
     return () => clearInterval(t)
   }, [])
 
-  const failing = snapshot?.myPullRequests.filter((p) => p.checks.state === 'failure').length ?? 0
-  const needs = snapshot?.needsReview.length ?? 0
+  // Counts must exclude hidden PRs to match the panel headers and tray badge.
+  const hidden = new Set(snapshot?.hiddenPrIds ?? [])
+  const failing = snapshot?.myPullRequests.filter((p) => !hidden.has(p.id) && p.checks.state === 'failure').length ?? 0
+  const needs = snapshot?.needsReview.filter((p) => !hidden.has(p.id)).length ?? 0
   const summary = needs === 0 && failing === 0 ? 'all caught up' : `${needs} to review${failing ? ` · ${failing} failing` : ''}`
 
   const ageMs = snapshot ? Date.now() - Date.parse(snapshot.fetchedAt) : 0

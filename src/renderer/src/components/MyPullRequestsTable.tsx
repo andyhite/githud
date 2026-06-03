@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { PullRequest } from '@shared/types'
 import {
-  ChecksCell, AgeCell, PrTitleCell, ReviewersCell,
+  AgeCell, PrTitleCell, ReviewersCell,
   RowActions, ShowHiddenToggle, HideProps
 } from './NeedsReviewTable'
 import { mergeReadiness } from './pr-status'
@@ -39,10 +39,9 @@ export function MyPullRequestsTable({
   const row = (pr: PullRequest, isHidden: boolean) => (
     <tr key={pr.id} className={isHidden ? 'row-hidden' : undefined}>
       <td><PrTitleCell pr={pr} /></td>
-      <td><StatusCell pr={pr} /></td>
+      <td className="col-status"><StatusCell pr={pr} /></td>
       <td><ReviewersCell pr={pr} /></td>
-      <td><ChecksCell pr={pr} /></td>
-      <td><AgeCell pr={pr} /></td>
+      <td className="col-age"><AgeCell pr={pr} /></td>
       <td className="actions"><RowActions pr={pr} isHidden={isHidden} onHide={onHide} onUnhide={onUnhide} onSnooze={onSnooze} /></td>
     </tr>
   )
@@ -52,7 +51,10 @@ export function MyPullRequestsTable({
       <table className="pr-table">
         <thead>
           <tr>
-            <th>PR</th><th>Status</th><th>Reviewers</th><th>Checks</th><th>Age</th>
+            <th>PR</th>
+            <th className="col-status">Status</th>
+            <th>Waiting on</th>
+            <th className="col-age">Age</th>
             <th aria-hidden="true"></th>
           </tr>
         </thead>

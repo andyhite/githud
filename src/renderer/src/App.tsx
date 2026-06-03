@@ -50,9 +50,6 @@ function Dashboard({
   // cheerful "all caught up" empty states before the first data arrives.
   const loading = snapshot === undefined
 
-  const [triageSort, setTriageSort] = useState<import('@shared/types').TriageSort>('oldest-first')
-  useEffect(() => { api.getSettings().then((s) => setTriageSort(s.triageSort)) }, [])
-
   const [aiOn, setAiOn] = useState(false)
   const [showDigest, setShowDigest] = useState(false)
   const [reviewId, setReviewId] = useState<string | null>(null)
@@ -78,7 +75,7 @@ function Dashboard({
 
   const [selected, setSelected] = useState(-1)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)), triageSort, verdicts)
+  const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)), verdicts)
   const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
 
   useEffect(() => {

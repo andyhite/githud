@@ -65,11 +65,19 @@ body { margin: 0; background: var(--bg); color: var(--text);
   font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
   padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .pr-table td { padding: 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-.pr-link { display: flex; flex-direction: column; align-items: flex-start;
-  background: none; border: none; padding: 0; cursor: pointer; text-align: left; }
+.pr-link { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left; width: 100%; }
 .pr-title { color: var(--bright); transition: color .12s; }
 .pr-link:hover .pr-title { color: var(--blue); text-decoration: underline; }
-.pr-repo { color: var(--muted); font-size: 12px; }
+/* Meta line under the title: repo #num · author · checks, dot-separated. */
+.pr-meta { display: flex; flex-wrap: wrap; align-items: baseline; font-size: 12px; color: var(--muted); }
+.pr-meta > * + *::before { content: '·'; color: var(--muted); margin: 0 6px; }
+.pr-checks.good { color: var(--green); } .pr-checks.bad { color: var(--red); } .pr-checks.warn { color: var(--amber); }
+/* Compact triage / age / status columns — shrink to content, rest goes to PR. */
+.pr-table th.col-age, .pr-table td.col-age,
+.pr-table th.col-triage, .pr-table td.col-triage,
+.pr-table th.col-status, .pr-table td.col-status { width: 1%; white-space: nowrap; }
+.pr-table td.col-age { color: var(--muted); }
 .reviewer-chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .reviewer-chip { background: #1f6feb22; color: var(--blue); border-radius: 8px;
   padding: 1px 7px; font-size: 12px; white-space: nowrap; }

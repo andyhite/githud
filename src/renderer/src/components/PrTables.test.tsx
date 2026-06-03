@@ -24,23 +24,22 @@ describe('NeedsReviewTable', () => {
     expect(screen.getByText(/nothing needs your review/i)).toBeInTheDocument()
   })
 
-  it('renders a row and opens the PR on click', async () => {
+  it('renders a row with author + checks in the meta line and opens the PR on click', async () => {
     render(<NeedsReviewTable items={[pr()]} />)
     expect(screen.getByText('Fix nav focus trap')).toBeInTheDocument()
     expect(screen.getByText(/o\/web #88/)).toBeInTheDocument()
+    expect(screen.getByText('asmith')).toBeInTheDocument() // author now in the PR meta line
+    expect(screen.getByText(/1 failing/i)).toBeInTheDocument() // checks now in the PR meta line
     await userEvent.click(screen.getByText('Fix nav focus trap'))
     expect(window.api.openExternal).toHaveBeenCalledWith('https://gh/88')
   })
 
-  it('lists requested reviewers as chips', () => {
-    render(<NeedsReviewTable items={[pr({ reviewers: [{ login: 'me', avatarUrl: '' }, { login: 'bob', avatarUrl: '' }] })]} />)
-    expect(screen.getByText('@me')).toBeInTheDocument()
-    expect(screen.getByText('@bob')).toBeInTheDocument()
-  })
-
-  it('shows a dash when there are no reviewers', () => {
-    render(<NeedsReviewTable items={[pr({ reviewers: [] })]} />)
-    expect(screen.getByText('—')).toBeInTheDocument()
+  it('shows the AI triage chip in its own column only when AI is enabled', () => {
+    const verdict = { prId: 'p1', label: 'quick_approve', rationale: 'small', focusHint: 'n/a' } as any
+    const { rerender } = render(<NeedsReviewTable items={[pr({ id: 'p1' })]} />)
+    expect(screen.queryByText(/quick approve/i)).not.toBeInTheDocument() // no triage column without aiOn
+    rerender(<NeedsReviewTable items={[pr({ id: 'p1' })]} aiOn verdicts={{ p1: verdict }} />)
+    expect(screen.getByText(/quick approve/i)).toBeInTheDocument()
   })
 
   it('copies the PR link from the actions menu', async () => {
@@ -52,11 +51,21 @@ describe('NeedsReviewTable', () => {
 })
 
 describe('MyPullRequestsTable', () => {
-  it('shows failing checks and changes-requested status', () => {
+  it('shows failing checks (in the meta line) and changes-requested status', () => {
     render(<MyPullRequestsTable items={[pr()]} />)
     expect(screen.getByText(/1 failing/i)).toBeInTheDocument()
     expect(screen.getByText(/changes requested/i)).toBeInTheDocument()
+  })
+
+  it('lists who the PR is waiting on as reviewer chips', () => {
+    render(<MyPullRequestsTable items={[pr({ reviewers: [{ login: 'me', avatarUrl: '' }, { login: 'bob', avatarUrl: '' }] })]} />)
     expect(screen.getByText('@me')).toBeInTheDocument()
+    expect(screen.getByText('@bob')).toBeInTheDocument()
+  })
+
+  it('shows a dash when there are no reviewers', () => {
+    render(<MyPullRequestsTable items={[pr({ reviewers: [] })]} />)
+    expect(screen.getByText('—')).toBeInTheDocument()
   })
 
   it('renders an empty state with no rows', () => {

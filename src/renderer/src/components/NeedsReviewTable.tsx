@@ -100,12 +100,13 @@ export function ShowHiddenToggle({
   )
 }
 
-export function ChecksCell({ pr }: { pr: PullRequest }) {
+// Compact CI summary for the PR meta line — null when there are no checks.
+function checksMeta(pr: PullRequest): { cls: string; text: string } | null {
   const c = pr.checks
-  if (c.state === 'none') return <span className="muted">—</span>
-  if (c.state === 'failure') return <span className="bad">✗ {c.failed} failing</span>
-  if (c.state === 'pending') return <span className="warn">● {c.total} running</span>
-  return <span className="good">✓ {c.passed}/{c.total}</span>
+  if (c.state === 'none') return null
+  if (c.state === 'failure') return { cls: 'bad', text: `✗ ${c.failed} failing` }
+  if (c.state === 'pending') return { cls: 'warn', text: `● ${c.total} running` }
+  return { cls: 'good', text: `✓ ${c.passed}/${c.total}` }
 }
 
 export function AgeCell({ pr }: { pr: PullRequest }) {
@@ -132,11 +133,19 @@ export function ReviewersCell({ pr }: { pr: PullRequest }) {
   )
 }
 
-export function PrTitleCell({ pr }: { pr: PullRequest }) {
+// Title (clickable) + a meta line: repo #num · [author] · [checks]. Checks and
+// author live here rather than in their own columns to keep rows compact and
+// every column useful for triage.
+export function PrTitleCell({ pr, showAuthor }: { pr: PullRequest; showAuthor?: boolean }) {
+  const checks = checksMeta(pr)
   return (
     <button className="pr-link" onClick={() => api.openExternal(pr.url)}>
       <span className="pr-title">{pr.title}</span>
-      <span className="pr-repo">{pr.repo} #{pr.number}</span>
+      <span className="pr-meta">
+        <span className="pr-repo">{pr.repo} #{pr.number}</span>
+        {showAuthor && <span className="pr-author">{pr.author.login}</span>}
+        {checks && <span className={`pr-checks ${checks.cls}`}>{checks.text}</span>}
+      </span>
     </button>
   )
 }
@@ -149,9 +158,9 @@ const TRIAGE_META: Record<string, { cls: string; label: string }> = {
 }
 
 export function TriageChip({ verdict }: { verdict?: TriageVerdict }) {
-  if (!verdict) return null
+  if (!verdict) return <span className="muted">—</span>
   const m = TRIAGE_META[verdict.label]
-  if (!m) return null
+  if (!m) return <span className="muted">—</span>
   return <span className={`triage-chip ${m.cls}`} title={`${verdict.rationale} — focus: ${verdict.focusHint}`}>{m.label}</span>
 }
 
@@ -178,11 +187,9 @@ export function NeedsReviewTable({
 
   const row = (pr: PullRequest, isHidden: boolean) => (
     <tr key={pr.id} className={[isHidden ? 'row-hidden' : '', pr.id === selectedId ? 'row-selected' : ''].filter(Boolean).join(' ') || undefined}>
-      <td><PrTitleCell pr={pr} /><TriageChip verdict={verdicts?.[pr.id]} /></td>
-      <td>{pr.author.login}</td>
-      <td><ReviewersCell pr={pr} /></td>
-      <td><ChecksCell pr={pr} /></td>
-      <td><AgeCell pr={pr} /></td>
+      <td><PrTitleCell pr={pr} showAuthor /></td>
+      {aiOn && <td className="col-triage"><TriageChip verdict={verdicts?.[pr.id]} /></td>}
+      <td className="col-age"><AgeCell pr={pr} /></td>
       <td className="actions"><RowActions pr={pr} isHidden={isHidden} aiOn={aiOn} onHide={onHide} onUnhide={onUnhide} onSnooze={onSnooze} onReview={onReview} /></td>
     </tr>
   )
@@ -192,7 +199,9 @@ export function NeedsReviewTable({
       <table className="pr-table">
         <thead>
           <tr>
-            <th>PR</th><th>Author</th><th>Reviewers</th><th>Checks</th><th>Age</th>
+            <th>PR</th>
+            {aiOn && <th className="col-triage">Triage</th>}
+            <th className="col-age">Age</th>
             <th aria-hidden="true"></th>
           </tr>
         </thead>

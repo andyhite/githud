@@ -63,8 +63,6 @@ export interface DashboardSnapshot {
   error?: string
 }
 
-export type TriageSort = 'oldest-first' | 'quick-first' | 'risky-first'
-
 export interface Settings {
   staleThresholdDays: number
   notificationsEnabled: boolean
@@ -74,8 +72,6 @@ export interface Settings {
   notifyKinds: FeedEventKind[]
   // M1: suppress notifications during this local-time window. null = always on. "HH:MM" 24h local; may wrap midnight (start > end).
   quietHours: { start: string; end: string } | null
-  // M3: ordering for the Needs-review list.
-  triageSort: TriageSort
   // M7: register the app as a macOS login item.
   launchAtLogin: boolean
 }
@@ -87,7 +83,6 @@ export const DEFAULT_SETTINGS: Settings = {
   hideBots: true,
   notifyKinds: ['mention', 'changes_requested', 'ci_failed', 'changes_addressed', 'review_re_requested'],
   quietHours: null,
-  triageSort: 'oldest-first',
   launchAtLogin: false
 }
 
