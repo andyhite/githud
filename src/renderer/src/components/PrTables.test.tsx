@@ -56,6 +56,11 @@ describe('NeedsReviewTable', () => {
     expect(screen.queryByText(/→/)).not.toBeInTheDocument()
   })
 
+  it('shows a status tag in its own column', () => {
+    render(<NeedsReviewTable items={[pr({ reviewState: 'changes_requested' })]} />)
+    expect(screen.getByText(/changes requested/i)).toBeInTheDocument()
+  })
+
   it('copies the PR link from the actions menu', async () => {
     render(<NeedsReviewTable items={[pr({ url: 'https://gh/88', branch: 'feat/x' })]} />)
     await userEvent.click(screen.getByRole('button', { name: /row actions/i }))

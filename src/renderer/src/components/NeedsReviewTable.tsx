@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PullRequest, TriageVerdict } from '@shared/types'
 import { api } from '../api'
 import { computeSnoozeUntil } from './snooze'
+import { mergeReadiness } from './pr-status'
 
 export interface HideProps {
   hiddenIds?: string[]
@@ -147,6 +148,24 @@ export function DiffStat({ pr }: { pr: PullRequest }) {
   )
 }
 
+// A single glanceable status tag. Color encodes urgency: red = needs action,
+// amber = blocked on conflicts, green = good to go, blue = waiting on
+// reviewers, grey = draft. Most-actionable state wins.
+function statusTag(pr: PullRequest): { cls: string; label: string } {
+  if (pr.isDraft) return { cls: 'st-muted', label: 'draft' }
+  if (pr.reviewState === 'changes_requested') return { cls: 'st-red', label: 'changes requested' }
+  if (pr.checks.state === 'failure') return { cls: 'st-red', label: 'CI failing' }
+  if (pr.mergeable === 'conflicting') return { cls: 'st-amber', label: 'conflicts' }
+  if (mergeReadiness(pr) === 'ready') return { cls: 'st-green', label: 'ready to merge' }
+  if (pr.reviewState === 'approved') return { cls: 'st-green', label: `${pr.approvals} approval${pr.approvals === 1 ? '' : 's'}` }
+  return { cls: 'st-blue', label: 'review required' }
+}
+
+export function StatusCell({ pr }: { pr: PullRequest }) {
+  const { cls, label } = statusTag(pr)
+  return <span className={`status-tag ${cls}`}>{label}</span>
+}
+
 // Title (clickable) + a meta line: repo #num · [→ base if stacked] · [author] ·
 // [checks] · [unresolved threads]. These live here rather than in their own
 // columns to keep rows compact and every real column useful for triage.
@@ -206,6 +225,7 @@ export function NeedsReviewTable({
     <tr key={pr.id} className={[isHidden ? 'row-hidden' : '', pr.id === selectedId ? 'row-selected' : ''].filter(Boolean).join(' ') || undefined}>
       <td><PrTitleCell pr={pr} showAuthor /></td>
       <td className="col-diff"><DiffStat pr={pr} /></td>
+      <td className="col-status"><StatusCell pr={pr} /></td>
       {aiOn && <td className="col-triage"><TriageChip verdict={verdicts?.[pr.id]} /></td>}
       <td className="col-age"><AgeCell pr={pr} /></td>
       <td className="actions"><RowActions pr={pr} isHidden={isHidden} aiOn={aiOn} onHide={onHide} onUnhide={onUnhide} onSnooze={onSnooze} onReview={onReview} /></td>
@@ -218,6 +238,7 @@ export function NeedsReviewTable({
         <tr>
           <th>PR</th>
           <th className="col-diff">Diff</th>
+          <th className="col-status">Status</th>
           {aiOn && <th className="col-triage">Triage</th>}
           <th className="col-age">Age</th>
           <th aria-hidden="true"></th>

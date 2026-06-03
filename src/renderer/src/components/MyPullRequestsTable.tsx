@@ -1,27 +1,8 @@
 import { PullRequest } from '@shared/types'
 import {
-  AgeCell, PrTitleCell, ReviewersCell, DiffStat,
+  AgeCell, PrTitleCell, ReviewersCell, DiffStat, StatusCell,
   RowActions, HideProps
 } from './NeedsReviewTable'
-import { mergeReadiness } from './pr-status'
-
-// A single glanceable status tag. Color encodes urgency: red = needs your
-// action, amber = blocked on conflicts, green = good to go, blue = waiting on
-// reviewers, grey = draft. Most-actionable state wins.
-function statusTag(pr: PullRequest): { cls: string; label: string } {
-  if (pr.isDraft) return { cls: 'st-muted', label: 'draft' }
-  if (pr.reviewState === 'changes_requested') return { cls: 'st-red', label: 'changes requested' }
-  if (pr.checks.state === 'failure') return { cls: 'st-red', label: 'CI failing' }
-  if (pr.mergeable === 'conflicting') return { cls: 'st-amber', label: 'conflicts' }
-  if (mergeReadiness(pr) === 'ready') return { cls: 'st-green', label: 'ready to merge' }
-  if (pr.reviewState === 'approved') return { cls: 'st-green', label: `${pr.approvals} approval${pr.approvals === 1 ? '' : 's'}` }
-  return { cls: 'st-blue', label: 'review required' }
-}
-
-function StatusCell({ pr }: { pr: PullRequest }) {
-  const { cls, label } = statusTag(pr)
-  return <span className={`status-tag ${cls}`}>{label}</span>
-}
 
 export function MyPullRequestsTable({
   items,
