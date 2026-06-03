@@ -7,6 +7,7 @@ describe('moveSelection', () => {
     expect(moveSelection(2, 'down', 3)).toBe(2)
     expect(moveSelection(0, 'up', 3)).toBe(0)
     expect(moveSelection(-1, 'down', 3)).toBe(0)
+    expect(moveSelection(-1, 'up', 3)).toBe(2) // from unselected, first up selects the last
   })
   it('returns -1 for an empty list', () => {
     expect(moveSelection(0, 'down', 0)).toBe(-1)
