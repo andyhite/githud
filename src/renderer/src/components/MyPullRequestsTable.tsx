@@ -4,8 +4,12 @@ import {
   ChecksCell, AgeCell, PrTitleCell, ReviewersCell,
   HideCell, ShowHiddenToggle, HideProps
 } from './NeedsReviewTable'
+import { mergeReadiness } from './pr-status'
 
 function StatusCell({ pr }: { pr: PullRequest }) {
+  if (mergeReadiness(pr) === 'ready') {
+    return <span className="good">✓ ready to merge</span>
+  }
   if (pr.reviewState === 'changes_requested') return <span className="warn">⟳ changes requested</span>
   if (pr.reviewState === 'approved') {
     const mergeNote = pr.mergeable === 'conflicting' ? ' · conflicts' : ''
