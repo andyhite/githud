@@ -59,18 +59,19 @@ src/
       cache.ts             # on-disk result cache keyed by `${kind}:${prId}:${headKey}`  (pure helpers + fs glue)
       verdict.ts           # (size,risk)→TriageLabel  (pure, tested; size bucket lives in src/shared/size.ts)
       triage.ts            # one cached Claude risk call -> TriageVerdict
-      digest.ts            # "catch me up" standup from the snapshot
+      digest.ts            # "catch me up" full standup + buildDeltaDigest (brief since-last-focus delta); eventsSince/deltaPayload are pure/tested
       review.ts            # first-pass advisory review of a diff
   preload/index.ts         # contextBridge exposing window.api (typed as GithudApi)
   renderer/src/
     App.tsx                # auth gate -> TokenSetup or Dashboard; composes filter+sort+verdicts+selection+lazy-load
     api.ts                 # lazy Proxy over window.api (see caveat below)
     hooks/useDashboard.ts  # TanStack Query: 30s refetch + onSnapshot push + cached seed
+    hooks/useDigest.ts     # subscribes to main's 'digest' push (brief on-focus delta digest)
     hooks/selection.ts     # moveSelection (pure) — j/k keyboard nav
     components/
       TopBar.tsx           # summary + filter box + rate-limit/stale badges (ticking) + refresh/settings
       NeedsReviewTable.tsx # table + RowActions kebab (⋮) menu + TriageChip + the shared cell components
-      MyPullRequestsTable.tsx, ActivityFeed.tsx, TokenSetup.tsx, Settings.tsx, CommandPalette.tsx (⌘K), Digest.tsx, ReviewPanel.tsx, icons.tsx
+      MyPullRequestsTable.tsx, ActivityFeed.tsx, TokenSetup.tsx, Settings.tsx, CommandPalette.tsx (⌘K), Digest.tsx, DigestPane.tsx (brief on-focus delta, above activity), ReviewPanel.tsx, icons.tsx
       TrendStrip.tsx, Sparkline.tsx, MiniBars.tsx   # trend KPI strip above the tables
       chart-geometry.ts, trend-metrics.ts           # pure, tested (SVG math + per-card derivations)
       pr-status.ts (mergeReadiness), sort-prs.ts, match.ts, snooze.ts, activity-severity.ts  # pure, tested
@@ -90,7 +91,8 @@ Query updates. AI results are NOT part of this flow — they're fetched on deman
 ## AI layer (opt-in)
 
 - **Dormant without a key.** No AI runs until the user saves an Anthropic key in Settings (`saveAiKey` validates it with a tiny call, then encrypts via `ai/key-store`). The renderer gates AI affordances on `getAiStatus().hasKey`.
-- **On-demand, never on the poll loop.** The three AI IPC handlers (`getTriage`, `getDigest`, `getReview`) are the only entry points; `poller.ts` has no AI imports. Triage + review fetch the PR diff (`fetch-diff`) and call Claude; **results are cached on disk** (`ai/cache.ts`) keyed by `PR id + headKey` (`headKey = pr.updatedAt`, which advances on new commits → auto-invalidates).
+- **On-demand, never on the poll loop.** The three AI IPC handlers (`getTriage`, `getDigest`, `getReview`) plus the on-focus delta digest (below) are the only entry points; `poller.ts` has no AI imports. Triage + review fetch the PR diff (`fetch-diff`) and call Claude; **results are cached on disk** (`ai/cache.ts`) keyed by `PR id + headKey` (`headKey = pr.updatedAt`, which advances on new commits → auto-invalidates).
+- **Brief delta digest (on focus).** Bringing the window to the foreground (`win.on('focus')` + macOS `did-become-active`, coalesced via `digestInFlight` in `index.ts`) refreshes the snapshot, then — if the feed has events newer than the tracked `lastFocusAt` — makes one terse Claude call (`buildDeltaDigest`) and pushes a one-sentence summary to the renderer via `webContents.send('digest', …)` → `useDigest` → `DigestPane`. No new events → no call, no token spend; the pane keeps its last sentence (`lastFocusAt` advances only after a successful generation). The detailed modal digest (`getDigest`/`Digest.tsx`) is unchanged, and the tray/dock badge is NOT cleared on focus (it reflects the needs-review count, not unread).
 - **Triage verdict** = deterministic `size` (diffstat → S/M/L/XL, pure/tested) combined with an AI `risk` read via `verdict.ts` (pure/tested) → one of `quick_approve | careful_read | likely_changes | big_effort`. The renderer lazy-loads a verdict per visible needs-review PR **once per session** (a `useRef` set guards against refetch storms; a null result is not retried).
 - **Structured output** uses `output_config: { effort, format: { type: 'json_schema', schema } }` and prompt-caches the system prompt (`cache_control: ephemeral`). The SDK's typed surface doesn't yet cover `output_config`/`cache_control` in all positions, so those `messages.create` calls carry intentional `as any` casts — keep them.
 - **Model id is a single constant** `AI_MODEL = 'claude-opus-4-8'` in `ai/client.ts`. Don't scatter model strings. Use the `claude-api` skill when touching SDK code.
