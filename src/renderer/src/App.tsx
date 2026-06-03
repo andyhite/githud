@@ -9,6 +9,7 @@ import { MyPullRequestsTable } from './components/MyPullRequestsTable'
 import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
+import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
@@ -71,7 +72,7 @@ function Dashboard({
           <div className="panel">
             <h2>Needs my review <span className="count">{visibleNeedsReview}</span></h2>
             <NeedsReviewTable
-              items={snapshot?.needsReview ?? []}
+              items={sortNeedsReview(snapshot?.needsReview ?? [])}
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
@@ -81,7 +82,7 @@ function Dashboard({
           <div className="panel">
             <h2>My open PRs <span className="count">{visibleMine}</span></h2>
             <MyPullRequestsTable
-              items={snapshot?.myPullRequests ?? []}
+              items={sortMyPrs(snapshot?.myPullRequests ?? [])}
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
