@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { FeedEvent, DashboardSnapshot } from '@shared/types'
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
 import { TopBar } from './components/TopBar'
@@ -37,6 +39,13 @@ function Dashboard({
 }) {
   const { data: snapshot, refetch, isFetching } = useDashboard()
 
+  const qc = useQueryClient()
+  const applyEvents = (events: FeedEvent[]) =>
+    qc.setQueryData<DashboardSnapshot | null>(['dashboard'], (old) => (old ? { ...old, events } : old))
+  const onRead = (id: string) => { void api.markRead(id).then(applyEvents) }
+  const onReadAll = () => { void api.markAllRead().then(applyEvents) }
+  const unread = snapshot?.events.filter((e) => e.unread).length ?? 0
+
   return (
     <div className="app">
       <TopBar
@@ -57,8 +66,12 @@ function Dashboard({
           </div>
         </section>
         <aside className="rail panel">
-          <h2>Activity <span className="count">{snapshot?.activity.length ?? 0}</span></h2>
-          <ActivityFeed items={snapshot?.activity ?? []} />
+          <h2>
+            Activity <span className="count">{unread}</span>
+            <span className="spacer" />
+            {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
+          </h2>
+          <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} />
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}

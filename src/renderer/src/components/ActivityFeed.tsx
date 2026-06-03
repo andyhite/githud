@@ -1,31 +1,32 @@
-import { ActivityItem } from '@shared/types'
+import { FeedEvent } from '@shared/types'
 import { api } from '../api'
 import { relativeAge } from './NeedsReviewTable'
-import { ActivityIcon } from './icons'
-import { classifyActivity } from './activity-severity'
+import { EventIcon } from './icons'
+import { severityForKind } from './activity-severity'
 
-// What happened, phrased as an action so each row reads "<who> <action>".
-const REASON_LABEL: Record<string, string> = {
-  mention: 'mentioned you',
-  team_mention: 'mentioned your team',
+const ACTION: Record<FeedEvent['kind'], string> = {
+  approved: 'approved',
+  changes_requested: 'requested changes',
+  review_commented: 'reviewed',
   comment: 'commented',
-  review_requested: 'requested your review',
-  ci_activity: 'CI activity',
-  assign: 'assigned you',
-  author: 'updated your thread',
-  state_change: 'changed state',
-  subscribed: 'new activity'
+  mention: 'mentioned you',
+  ci_failed: 'checks failed',
+  ci_succeeded: 'checks passed',
+  review_requested: 'review requested',
+  merged: 'merged',
+  closed: 'closed'
 }
 
-function ActivityRow({ item }: { item: ActivityItem }) {
-  const who = item.latestComment?.author.login
-  // A resolved state ("merged"/"closed"/"reopened") is clearer than "changed state".
-  const action = item.subjectState ?? REASON_LABEL[item.reason] ?? item.reason
-  const severity = classifyActivity(item)
-  const open = () => api.openExternal(item.url)
+function EventRow({ event, onRead }: { event: FeedEvent; onRead: (id: string) => void }) {
+  const who = event.actor?.login
+  const severity = severityForKind(event.kind)
+  const open = () => {
+    api.openExternal(event.url)
+    onRead(event.id)
+  }
   return (
     <div
-      className={`activity-item sev-${severity}${item.unread ? ' unread' : ''}`}
+      className={`activity-item sev-${severity}${event.unread ? ' unread' : ''}`}
       role="button"
       tabIndex={0}
       onClick={open}
@@ -36,25 +37,25 @@ function ActivityRow({ item }: { item: ActivityItem }) {
         }
       }}
     >
-      <ActivityIcon item={item} />
+      <EventIcon kind={event.kind} />
       <div className="activity-main">
         <div className="activity-head">
           {who && <span className="activity-author">{who}</span>}
-          <span className="activity-action">{action}</span>
-          <span className="activity-time">{relativeAge(item.updatedAt)}</span>
+          <span className="activity-action">{ACTION[event.kind]}</span>
+          <span className="activity-time">{relativeAge(event.createdAt)}</span>
         </div>
-        <div className="activity-title">{item.title}</div>
-        <div className="activity-ctx">{item.repo}{item.number ? ` #${item.number}` : ''}</div>
+        <div className="activity-title">{event.title}</div>
+        <div className="activity-ctx">{event.repo} #{event.number}</div>
       </div>
     </div>
   )
 }
 
-export function ActivityFeed({ items }: { items: ActivityItem[] }) {
-  if (items.length === 0) return <p className="empty">No recent activity.</p>
+export function ActivityFeed({ events, onRead }: { events: FeedEvent[]; onRead: (id: string) => void }) {
+  if (events.length === 0) return <p className="empty">No recent activity.</p>
   return (
     <div className="activity-feed">
-      {items.map((item) => <ActivityRow key={item.id} item={item} />)}
+      {events.map((e) => <EventRow key={e.id} event={e} onRead={onRead} />)}
     </div>
   )
 }

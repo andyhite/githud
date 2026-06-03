@@ -27,22 +27,23 @@ export interface PullRequest {
   isDraft: boolean
 }
 
-export interface ActivityItem {
-  id: string // notification thread id
-  reason: string // 'mention' | 'team_mention' | 'comment' | 'review_requested' | 'ci_activity' | ...
-  subjectType: string // 'PullRequest' | 'Issue' | 'Commit' | ...
+export type FeedEventKind =
+  | 'approved' | 'changes_requested' | 'review_commented'
+  | 'comment' | 'mention'
+  | 'ci_failed' | 'ci_succeeded'
+  | 'review_requested'
+  | 'merged' | 'closed'
+
+export interface FeedEvent {
+  id: string // stable, content-derived; enables dedupe + read-state
+  kind: FeedEventKind
   repo: string // "owner/name"
-  number?: number
-  title: string
-  url: string
+  number: number
+  title: string // PR title
+  url: string // deep-link to the comment/review when possible
+  actor?: User // reviewer / commenter; absent for CI + lifecycle
+  createdAt: string
   unread: boolean
-  updatedAt: string
-  subjectState?: string // for state_change reasons: 'merged' | 'closed' | 'reopened' | ...
-  latestComment?: {
-    author: User
-    body: string
-    createdAt: string
-  }
 }
 
 export interface RateLimit {
@@ -55,7 +56,7 @@ export interface DashboardSnapshot {
   viewer: User
   needsReview: PullRequest[]
   myPullRequests: PullRequest[]
-  activity: ActivityItem[]
+  events: FeedEvent[]
   rateLimit: RateLimit
   error?: string
 }
@@ -95,4 +96,6 @@ export interface GithudApi {
   getSettings(): Promise<Settings>
   saveSettings(settings: Settings): Promise<Settings>
   openExternal(url: string): Promise<void>
+  markRead(id: string): Promise<FeedEvent[]>
+  markAllRead(): Promise<FeedEvent[]>
 }

@@ -10,3 +10,9 @@ export function settingsFilePath(): string {
 export function snapshotFilePath(): string {
   return join(app.getPath('userData'), 'snapshot.json')
 }
+export function eventsFilePath(): string {
+  return join(app.getPath('userData'), 'events.json')
+}
+export function prStateFilePath(): string {
+  return join(app.getPath('userData'), 'pr-state.json')
+}

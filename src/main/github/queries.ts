@@ -13,11 +13,17 @@ const PR_FIELDS = `
     nodes { requestedReviewer { ... on User { login avatarUrl } } }
   }
   reviews(last: 50) {
-    nodes { state author { login avatarUrl } }
+    nodes { id state author { login avatarUrl } submittedAt url }
+  }
+  # Event derivation diffs these windows against the previous poll. A comment or
+  # review pushed out of the window before a poll observes it is not surfaced.
+  comments(last: 20) {
+    nodes { id author { login avatarUrl } createdAt url bodyText }
   }
   commits(last: 1) {
     nodes {
       commit {
+        oid
         statusCheckRollup {
           state
           contexts(first: 100) {

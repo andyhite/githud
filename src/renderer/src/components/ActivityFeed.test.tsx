@@ -2,49 +2,43 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ActivityFeed } from './ActivityFeed'
-import type { ActivityItem } from '@shared/types'
+import type { FeedEvent } from '@shared/types'
 
-function item(over: Partial<ActivityItem> = {}): ActivityItem {
+function ev(over: Partial<FeedEvent> = {}): FeedEvent {
   return {
-    id: 't1', reason: 'mention', subjectType: 'PullRequest', repo: 'o/web', number: 88,
-    title: 'Fix nav focus trap', url: 'https://gh/88', unread: true, updatedAt: '2026-06-02T00:00:00Z',
-    latestComment: { author: { login: 'asmith', avatarUrl: '' }, body: 'Please also handle the browser-chrome case.', createdAt: '2026-06-02T00:00:00Z' },
-    ...over
+    id: 'e1', kind: 'approved', repo: 'o/web', number: 88, title: 'Fix nav focus trap',
+    url: 'https://gh/88', createdAt: '2026-06-02T00:00:00Z', unread: true,
+    actor: { login: 'alice', avatarUrl: '' }, ...over
   }
 }
 
-beforeEach(() => { window.api = { openExternal: vi.fn() } as any })
+beforeEach(() => { window.api = { openExternal: vi.fn(), markRead: vi.fn().mockResolvedValue([]) } as any })
 
 describe('ActivityFeed', () => {
-  it('shows who acted, what happened, and the subject — not the comment body', () => {
-    render(<ActivityFeed items={[item()]} />)
-    expect(screen.getByText('asmith')).toBeInTheDocument()
-    expect(screen.getByText(/mentioned you/i)).toBeInTheDocument()
+  it('shows the actor, action phrasing, and subject', () => {
+    render(<ActivityFeed events={[ev()]} onRead={vi.fn()} />)
+    expect(screen.getByText('alice')).toBeInTheDocument()
+    expect(screen.getByText(/approved/i)).toBeInTheDocument()
     expect(screen.getByText('Fix nav focus trap')).toBeInTheDocument()
     expect(screen.getByText(/o\/web #88/)).toBeInTheDocument()
-    expect(screen.queryByText(/please also handle the browser-chrome case/i)).not.toBeInTheDocument()
   })
 
-  it('opens the thread on click', async () => {
-    render(<ActivityFeed items={[item()]} />)
-    await userEvent.click(screen.getByText(/fix nav focus trap/i))
+  it('phrases a mention and a CI failure', () => {
+    render(<ActivityFeed events={[ev({ id: 'm', kind: 'mention' }), ev({ id: 'c', kind: 'ci_failed', actor: undefined })]} onRead={vi.fn()} />)
+    expect(screen.getByText(/mentioned you/i)).toBeInTheDocument()
+    expect(screen.getByText(/checks failed/i)).toBeInTheDocument()
+  })
+
+  it('opens the event and marks it read on click', async () => {
+    const onRead = vi.fn()
+    render(<ActivityFeed events={[ev()]} onRead={onRead} />)
+    await userEvent.click(screen.getByText('Fix nav focus trap'))
     expect(window.api.openExternal).toHaveBeenCalledWith('https://gh/88')
-  })
-
-  it('shows the resolved subject state instead of "changed state"', () => {
-    render(<ActivityFeed items={[item({ id: 't3', reason: 'state_change', latestComment: undefined, subjectState: 'merged', title: 'Add token gate' })]} />)
-    expect(screen.getByText('merged')).toBeInTheDocument()
-    expect(screen.queryByText(/changed state/i)).not.toBeInTheDocument()
+    expect(onRead).toHaveBeenCalledWith('e1')
   })
 
   it('renders an empty state', () => {
-    render(<ActivityFeed items={[]} />)
+    render(<ActivityFeed events={[]} onRead={vi.fn()} />)
     expect(screen.getByText(/no recent activity/i)).toBeInTheDocument()
-  })
-
-  it('renders subject-only items without a comment body', () => {
-    render(<ActivityFeed items={[item({ id: 't2', reason: 'ci_activity', latestComment: undefined, title: 'CI failed on main' })]} />)
-    expect(screen.getByText(/ci failed on main/i)).toBeInTheDocument()
-    expect(screen.getByText(/ci.activity/i)).toBeInTheDocument()
   })
 })

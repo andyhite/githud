@@ -1,15 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { StateCache, enrichStates, subjectStateLabel } from './enrich-state'
-
-function thread(id: string, over: any = {}) {
-  return {
-    id,
-    reason: 'state_change',
-    updated_at: '2026-06-02T00:00:00Z',
-    subject: { type: 'PullRequest', url: `https://api/repos/o/web/pulls/${id}` },
-    ...over
-  }
-}
+import { describe, it, expect } from 'vitest'
+import { subjectStateLabel } from './enrich-state'
 
 describe('subjectStateLabel', () => {
   it('labels a merged PR', () => {
@@ -30,33 +20,5 @@ describe('subjectStateLabel', () => {
 
   it('returns undefined for unknown subject types', () => {
     expect(subjectStateLabel({ state: 'closed' }, 'Commit')).toBeUndefined()
-  })
-})
-
-describe('enrichStates', () => {
-  it('resolves state for state_change threads and caches by url', async () => {
-    const cache = new StateCache()
-    const request = vi.fn().mockResolvedValue({ data: { state: 'closed', merged: true } })
-    const out = await enrichStates([thread('1')], { cache, request })
-    expect(request).toHaveBeenCalledTimes(1)
-    expect(out.get('1')).toBe('merged')
-
-    await enrichStates([thread('1')], { cache, request })
-    expect(request).toHaveBeenCalledTimes(1) // served from cache
-  })
-
-  it('ignores threads whose reason is not state_change', async () => {
-    const cache = new StateCache()
-    const request = vi.fn()
-    const out = await enrichStates([thread('1', { reason: 'comment' })], { cache, request })
-    expect(request).not.toHaveBeenCalled()
-    expect(out.has('1')).toBe(false)
-  })
-
-  it('swallows fetch errors without failing the batch', async () => {
-    const cache = new StateCache()
-    const request = vi.fn().mockRejectedValue(new Error('boom'))
-    const out = await enrichStates([thread('1')], { cache, request })
-    expect(out.has('1')).toBe(false)
   })
 })
