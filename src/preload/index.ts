@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { GithudApi, DashboardSnapshot, Settings } from '../shared/types'
+import type { GithudApi, DashboardSnapshot, Settings, DigestResult } from '../shared/types'
 
 const api: GithudApi = {
   getSnapshot: () => ipcRenderer.invoke('getSnapshot'),
@@ -8,6 +8,11 @@ const api: GithudApi = {
     const listener = (_e: unknown, snap: DashboardSnapshot) => cb(snap)
     ipcRenderer.on('snapshot', listener)
     return () => ipcRenderer.removeListener('snapshot', listener)
+  },
+  onDigest: (cb) => {
+    const listener = (_e: unknown, digest: DigestResult) => cb(digest)
+    ipcRenderer.on('digest', listener)
+    return () => ipcRenderer.removeListener('digest', listener)
   },
   getAuthStatus: () => ipcRenderer.invoke('getAuthStatus'),
   saveToken: (token: string) => ipcRenderer.invoke('saveToken', token),
