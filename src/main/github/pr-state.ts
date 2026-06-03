@@ -28,6 +28,7 @@ export interface PRState {
   headOid: string
   reviews: PrReview[]
   comments: PrComment[]
+  reviewRequestedLogins: string[]
 }
 
 function ciStateFromRollup(state: string | undefined): PRState['ciState'] {
@@ -68,6 +69,9 @@ export function toPrState(node: any, source: 'mine' | 'review'): PRState {
       url: c.url ?? node.url,
       createdAt: c.createdAt ?? '',
       bodyText: c.bodyText ?? ''
-    }))
+    })),
+    reviewRequestedLogins: (node.reviewRequests?.nodes ?? [])
+      .map((rr: any) => rr.requestedReviewer?.login)
+      .filter(Boolean),
   }
 }

@@ -9,6 +9,7 @@ function node(over: any = {}) {
     reviews: { nodes: [{ id: 'r1', state: 'APPROVED', author: { login: 'alice', avatarUrl: 'av-a' }, submittedAt: '2026-06-02T00:00:00Z', url: 'https://gh/88#r1' }] },
     comments: { nodes: [{ id: 'c1', author: { login: 'carol', avatarUrl: 'av-c' }, createdAt: '2026-06-02T01:00:00Z', url: 'https://gh/88#c1', bodyText: 'hi' }] },
     commits: { nodes: [{ commit: { oid: 'deadbeef', statusCheckRollup: { state: 'FAILURE' } } }] },
+    reviewRequests: { nodes: [{ requestedReviewer: { login: 'me', avatarUrl: '' } }] },
     ...over
   }
 }
@@ -28,6 +29,10 @@ describe('toPrState', () => {
     expect(toPrState(node({ commits: { nodes: [{ commit: { oid: 'x', statusCheckRollup: { state: 'SUCCESS' } } }] } }), 'review').ciState).toBe('success')
     expect(toPrState(node({ commits: { nodes: [{ commit: { oid: 'x', statusCheckRollup: { state: 'PENDING' } } }] } }), 'review').ciState).toBe('pending')
     expect(toPrState(node({ commits: { nodes: [] }, reviews: { nodes: [] }, comments: { nodes: [] } }), 'review')).toMatchObject({ ciState: 'none', headOid: '', reviews: [], comments: [] })
+  })
+
+  it('captures requested-reviewer logins', () => {
+    expect(toPrState(node(), 'review').reviewRequestedLogins).toEqual(['me'])
   })
 
   it('skips null review/comment nodes (inaccessible items in a connection)', () => {

@@ -12,10 +12,10 @@ function titleFor(e: FeedEvent): string {
     mention: who ? `${who} mentioned you` : 'You were mentioned',
     ci_failed: 'Checks failed',
     ci_succeeded: 'Checks passed',
-    ci_regressed: 'Checks regressed',
+    ci_regressed: 'CI regressed',
     review_requested: 'Review requested',
-    review_re_requested: 'Review re-requested',
-    changes_addressed: 'Changes addressed',
+    review_re_requested: 'Re-review requested',
+    changes_addressed: who ? `${who} addressed your review` : 'Your change request was addressed',
     merged: 'PR merged',
     closed: 'PR closed'
   }
