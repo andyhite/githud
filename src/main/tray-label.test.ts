@@ -5,7 +5,7 @@ import type { DashboardSnapshot } from '@shared/types'
 function snap(over: Partial<DashboardSnapshot> = {}): DashboardSnapshot {
   return {
     fetchedAt: 'x', viewer: { login: 'me', avatarUrl: '' },
-    needsReview: [], myPullRequests: [], events: [], hiddenPrIds: [], history: [],
+    needsReview: [], myPullRequests: [], teamPullRequests: [], events: [], hiddenPrIds: [], history: [],
     rateLimit: { remaining: 0, resetAt: '' }, ...over
   }
 }

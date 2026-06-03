@@ -19,6 +19,7 @@ const api: GithudApi = {
   getSettings: () => ipcRenderer.invoke('getSettings'),
   saveSettings: (settings: Settings) => ipcRenderer.invoke('saveSettings', settings),
   openExternal: (url: string) => ipcRenderer.invoke('openExternal', url),
+  sendTestNotification: () => ipcRenderer.invoke('sendTestNotification'),
   markRead: (id: string) => ipcRenderer.invoke('markRead', id),
   markAllRead: () => ipcRenderer.invoke('markAllRead'),
   hidePr: (id: string, updatedAt: string) => ipcRenderer.invoke('hidePr', id, updatedAt),

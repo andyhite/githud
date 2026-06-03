@@ -43,6 +43,12 @@ describe('normalizePullRequests', () => {
     expect(pr.reviewers).toEqual([{ login: 'me', avatarUrl: 'av-me' }])
   })
 
+  it('extracts label names (empty when none / missing)', () => {
+    const [pr] = normalizePullRequests([prNode({ labels: { nodes: [{ name: 'frontend' }, { name: 'bug' }] } })], { now, staleThresholdMs: staleMs })
+    expect(pr.labels).toEqual(['frontend', 'bug'])
+    expect(normalizePullRequests([prNode()], { now, staleThresholdMs: staleMs })[0].labels).toEqual([])
+  })
+
   it('maps mergeable enum to lowercase union', () => {
     expect(normalizePullRequests([prNode({ mergeable: 'CONFLICTING' })], { now, staleThresholdMs: staleMs })[0].mergeable).toBe('conflicting')
     expect(normalizePullRequests([prNode({ mergeable: 'UNKNOWN' })], { now, staleThresholdMs: staleMs })[0].mergeable).toBe('unknown')
@@ -99,6 +105,97 @@ describe('normalizePullRequests', () => {
     expect(pr.checks).toEqual({ state: 'failure', passed: 2, failed: 1, total: 4 })
   })
 
+  it('counts only required checks when the base branch has required status check contexts', () => {
+    const node = prNode({
+      baseRef: { branchProtectionRule: { requiredStatusCheckContexts: ['build', 'test'] } },
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'FAILURE', // overall rollup is red because of the optional check
+        contexts: { nodes: [
+          { __typename: 'CheckRun', name: 'build', conclusion: 'SUCCESS' },
+          { __typename: 'CheckRun', name: 'test', conclusion: 'SUCCESS' },
+          { __typename: 'CheckRun', name: 'lint-optional', conclusion: 'FAILURE' } // not required
+        ] }
+      } } }] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.checks).toEqual({ state: 'success', passed: 2, failed: 0, total: 2 })
+  })
+
+  it('reports failure when a required check fails even if optional checks pass', () => {
+    const node = prNode({
+      baseRef: { branchProtectionRule: { requiredStatusCheckContexts: ['build'] } },
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'FAILURE',
+        contexts: { nodes: [
+          { __typename: 'CheckRun', name: 'build', conclusion: 'FAILURE' },
+          { __typename: 'CheckRun', name: 'lint-optional', conclusion: 'SUCCESS' }
+        ] }
+      } } }] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.checks).toEqual({ state: 'failure', passed: 0, failed: 1, total: 1 })
+  })
+
+  it('matches required StatusContext entries by their context name', () => {
+    const node = prNode({
+      baseRef: { branchProtectionRule: { requiredStatusCheckContexts: ['ci/legacy'] } },
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'FAILURE',
+        contexts: { nodes: [
+          { __typename: 'StatusContext', context: 'ci/legacy', state: 'SUCCESS' },
+          { __typename: 'StatusContext', context: 'ci/optional', state: 'FAILURE' }
+        ] }
+      } } }] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.checks).toEqual({ state: 'success', passed: 1, failed: 0, total: 1 })
+  })
+
+  it('reports pending when a required check is still in progress', () => {
+    const node = prNode({
+      baseRef: { branchProtectionRule: { requiredStatusCheckContexts: ['build', 'test'] } },
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'FAILURE',
+        contexts: { nodes: [
+          { __typename: 'CheckRun', name: 'build', conclusion: 'SUCCESS' },
+          { __typename: 'CheckRun', name: 'test', conclusion: null }, // required, in progress
+          { __typename: 'CheckRun', name: 'lint-optional', conclusion: 'FAILURE' }
+        ] }
+      } } }] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.checks).toEqual({ state: 'pending', passed: 1, failed: 0, total: 2 })
+  })
+
+  it('reports pending when required checks are configured but none have reported yet', () => {
+    const node = prNode({
+      baseRef: { branchProtectionRule: { requiredStatusCheckContexts: ['build'] } },
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'FAILURE',
+        contexts: { nodes: [
+          { __typename: 'CheckRun', name: 'lint-optional', conclusion: 'FAILURE' }
+        ] }
+      } } }] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.checks).toEqual({ state: 'pending', passed: 0, failed: 0, total: 0 })
+  })
+
+  it('counts all checks when the required contexts list is empty (no branch protection)', () => {
+    const node = prNode({
+      baseRef: { branchProtectionRule: { requiredStatusCheckContexts: [] } },
+      commits: { nodes: [{ commit: { statusCheckRollup: {
+        state: 'FAILURE',
+        contexts: { nodes: [
+          { __typename: 'CheckRun', name: 'build', conclusion: 'SUCCESS' },
+          { __typename: 'CheckRun', name: 'lint', conclusion: 'FAILURE' }
+        ] }
+      } } }] }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.checks).toEqual({ state: 'failure', passed: 1, failed: 1, total: 2 })
+  })
+
   it('reports checks state none when no rollup', () => {
     expect(normalizePullRequests([prNode()], { now, staleThresholdMs: staleMs })[0].checks)
       .toEqual({ state: 'none', passed: 0, failed: 0, total: 0 })
@@ -145,16 +242,16 @@ describe('normalizePullRequests', () => {
     expect(pr).toMatchObject({ baseBranch: 'release/2.0', additions: 120, deletions: 30, changedFiles: 7 })
   })
 
-  it('counts unresolved review threads, excluding bots and excluded authors', () => {
+  it('counts unresolved review threads, excluding excluded authors', () => {
     const node = prNode({
       reviewThreads: { nodes: [
         { isResolved: false, comments: { nodes: [{ author: { login: 'alice' } }] } },   // counts
         { isResolved: true, comments: { nodes: [{ author: { login: 'bob' } }] } },        // resolved → skip
-        { isResolved: false, comments: { nodes: [{ author: { login: 'dependabot[bot]' } }] } }, // bot → skip
+        { isResolved: false, comments: { nodes: [{ author: { login: 'dependabot[bot]' } }] } }, // excluded → skip
         { isResolved: false, comments: { nodes: [{ author: { login: 'noisy' } }] } }      // excluded → skip
       ] }
     })
-    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs, excludedAuthors: ['noisy'], hideBots: true })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs, excludedAuthors: ['noisy', 'dependabot[bot]'] })
     expect(pr.unresolvedThreads).toBe(1)
   })
 
@@ -166,7 +263,28 @@ describe('normalizePullRequests', () => {
       ] }
     })
     const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
-    expect(pr.unresolvedThreads).toBe(2) // hideBots defaults off
+    expect(pr.unresolvedThreads).toBe(2)
+  })
+
+  it('drops PRs whose author is in the excluded list (case-insensitive)', () => {
+    const nodes = [
+      prNode({ id: 'PR_keep', author: { login: 'alice', avatarUrl: '' } }),
+      prNode({ id: 'PR_drop', author: { login: 'Spammer', avatarUrl: '' } })
+    ]
+    const out = normalizePullRequests(nodes, { now, staleThresholdMs: staleMs, excludedAuthors: ['spammer'] })
+    expect(out.map((p) => p.id)).toEqual(['PR_keep'])
+  })
+
+  it('drops a bot-authored PR only when its login is in the excluded list', () => {
+    const nodes = [prNode({ id: 'PR_bot', author: { login: 'dependabot[bot]', avatarUrl: '' } })]
+    expect(normalizePullRequests(nodes, { now, staleThresholdMs: staleMs, excludedAuthors: ['dependabot[bot]'] })).toHaveLength(0)
+    expect(normalizePullRequests(nodes, { now, staleThresholdMs: staleMs })).toHaveLength(1)
+  })
+
+  it('keeps PRs whose author cannot be attributed', () => {
+    const nodes = [prNode({ id: 'PR_ghost', author: null })]
+    const out = normalizePullRequests(nodes, { now, staleThresholdMs: staleMs, excludedAuthors: ['x'] })
+    expect(out).toHaveLength(1)
   })
 
   it('returns an empty array for an empty, null, or null-containing node list', () => {

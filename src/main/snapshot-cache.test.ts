@@ -14,6 +14,7 @@ const sample: DashboardSnapshot = {
   viewer: { login: 'me', avatarUrl: 'a' },
   needsReview: [],
   myPullRequests: [],
+  teamPullRequests: [],
   events: [],
   hiddenPrIds: [],
   history: [],

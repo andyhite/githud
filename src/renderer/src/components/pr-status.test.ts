@@ -8,7 +8,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
     author: { login: 'me', avatarUrl: '' }, reviewers: [],
     reviewState: 'none', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'success', passed: 1, failed: 0, total: 1 },
-    additions: 0, deletions: 0, changedFiles: 0, unresolvedThreads: 0,
+    additions: 0, deletions: 0, changedFiles: 0, unresolvedThreads: 0, labels: [],
     updatedAt: '2026-06-01T00:00:00Z', isStale: false, isDraft: false, ...over
   }
 }

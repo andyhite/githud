@@ -13,10 +13,12 @@ import { Digest } from './components/Digest'
 import { DigestPane } from './components/DigestPane'
 import { useDigest } from './hooks/useDigest'
 import { ReviewPanel } from './components/ReviewPanel'
-import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
+import { sortNeedsReview, sortMyPrs, sortTeamPrs } from './components/sort-prs'
 import { moveSelection } from './hooks/selection'
 import { CommandPalette, Command } from './components/CommandPalette'
 import { TrendStrip } from './components/TrendStrip'
+import { LabelFilterChips } from './components/LabelFilterChips'
+import { filterTeamPrs } from './components/team-filter'
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
@@ -83,10 +85,22 @@ function Dashboard({
   const visibleNeedsReview = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id)).length
   const visibleMine = (snapshot?.myPullRequests ?? []).filter((p) => !hiddenSet.has(p.id)).length
 
+  // Team panel: which configured labels the user has temporarily muted (chips
+  // clicked off). Stays in renderer state — it's a transient view filter.
+  const [mutedLabels, setMutedLabels] = useState<string[]>([])
+  const toggleLabel = (label: string) =>
+    setMutedLabels((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]))
+  const teamLabels = settings.teamLabels ?? []
+  const teamItems = sortTeamPrs(snapshot?.teamPullRequests ?? [])
+  const visibleTeam = filterTeamPrs(teamItems, teamLabels, mutedLabels)
+  const teamVisibleCount = visibleTeam.filter((p) => !hiddenSet.has(p.id)).length
+  const hiddenTeamCount = visibleTeam.length - teamVisibleCount
+
   const [selected, setSelected] = useState(-1)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [showHiddenReview, setShowHiddenReview] = useState(false)
   const [showHiddenMine, setShowHiddenMine] = useState(false)
+  const [showHiddenTeam, setShowHiddenTeam] = useState(false)
   const reviewItems = sortNeedsReview(snapshot?.needsReview ?? [], verdicts)
   const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
   const mineItems = sortMyPrs(snapshot?.myPullRequests ?? [])
@@ -130,6 +144,8 @@ function Dashboard({
         onRefresh={() => refetch()}
         onOpenSettings={onOpenSettings}
         isFetching={isFetching}
+        pollBaseMs={Math.max(30, settings.refreshIntervalSeconds || 60) * 1000}
+        pollReserveFraction={1 - Math.min(Math.max(settings.apiBudgetPercent || 80, 10), 100) / 100}
       />
       <TrendStrip
         history={snapshot?.history ?? []}
@@ -159,6 +175,26 @@ function Dashboard({
               onReview={setReviewId}
             />
           </div>
+          {teamLabels.length > 0 && (
+            <div className="panel">
+              <h2>
+                Team PRs <span className="count">{teamVisibleCount}</span>
+                <span className="spacer" />
+                <LabelFilterChips labels={teamLabels} muted={mutedLabels} onToggle={toggleLabel} />
+                <ShowHiddenToggle count={hiddenTeamCount} open={showHiddenTeam} onToggle={() => setShowHiddenTeam((v) => !v)} />
+              </h2>
+              <MyPullRequestsTable
+                items={visibleTeam}
+                hiddenIds={hiddenIds}
+                showHidden={showHiddenTeam}
+                showAuthor
+                emptyVariant="team"
+                onHide={onHide}
+                onUnhide={onUnhide}
+                loading={loading}
+              />
+            </div>
+          )}
           <div className="panel">
             <h2>
               My open PRs <span className="count">{visibleMine}</span>
@@ -176,15 +212,26 @@ function Dashboard({
             />
           </div>
         </section>
-        <aside className="rail panel">
-          <h2>
-            Activity <span className="count">{unread}</span>
-            <span className="spacer" />
-            {aiOn && <button className="link-button" onClick={() => setShowDigest(true)}>catch me up</button>}
-            {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
-          </h2>
-          {aiOn && <DigestPane digest={digest} />}
-          <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
+        <aside className="rail">
+          {aiOn && (
+            <div className="panel digest-panel">
+              <h2>
+                Recap
+                <span className="spacer" />
+                <span className="digest-meta">since you were away</span>
+              </h2>
+              <DigestPane digest={digest} />
+            </div>
+          )}
+          <div className="panel activity-panel">
+            <h2>
+              Activity <span className="count">{unread}</span>
+              <span className="spacer" />
+              {aiOn && <button className="link-button" onClick={() => setShowDigest(true)}>catch me up</button>}
+              {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
+            </h2>
+            <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
+          </div>
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}

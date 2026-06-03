@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sortNeedsReview, sortMyPrs } from './sort-prs'
+import { sortNeedsReview, sortMyPrs, sortTeamPrs } from './sort-prs'
 import type { PullRequest } from '@shared/types'
 
 function pr(over: Partial<PullRequest> = {}): PullRequest {
@@ -8,7 +8,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
     author: { login: 'me', avatarUrl: '' }, reviewers: [],
     reviewState: 'none', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'success', passed: 1, failed: 0, total: 1 },
-    additions: 0, deletions: 0, changedFiles: 0, unresolvedThreads: 0,
+    additions: 0, deletions: 0, changedFiles: 0, unresolvedThreads: 0, labels: [],
     updatedAt: '2026-06-01T00:00:00Z', isStale: false, isDraft: false, ...over
   }
 }
@@ -39,5 +39,13 @@ describe('sortMyPrs', () => {
     const attention = pr({ id: 'attention', reviewState: 'changes_requested' })
     const draft = pr({ id: 'draft', isDraft: true })
     expect(sortMyPrs([ready, draft, attention]).map((p) => p.id)).toEqual(['attention', 'ready', 'draft'])
+  })
+})
+
+describe('sortTeamPrs', () => {
+  it('puts the oldest (oldest updatedAt) first, ignoring status', () => {
+    const recentDraft = pr({ id: 'recentDraft', updatedAt: '2026-06-02T00:00:00Z', isDraft: true })
+    const oldReady = pr({ id: 'oldReady', updatedAt: '2026-05-30T00:00:00Z', reviewState: 'approved' })
+    expect(sortTeamPrs([recentDraft, oldReady]).map((p) => p.id)).toEqual(['oldReady', 'recentDraft'])
   })
 })

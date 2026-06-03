@@ -1,24 +1,21 @@
 import { PullRequest, ChecksSummary, User } from '@shared/types'
-import { isBotLogin } from './filter-events'
+import { isExcludedAuthor } from './filter-events'
 
 interface NormalizeOpts {
   now: number
   staleThresholdMs: number
-  // Author filter (mirrors the activity feed) applied to the unresolved-thread
-  // count so bot/excluded-author threads aren't counted.
+  // Author filter (mirrors the activity feed) applied to both the PR list itself
+  // and the unresolved-thread count, so excluded-author PRs and threads are
+  // hidden consistently.
   excludedAuthors?: string[]
-  hideBots?: boolean
 }
 
-// Count open review threads, excluding threads opened by a bot (when hideBots)
-// or an excluded author — matching the activity-feed filter.
-function countUnresolvedThreads(node: any, denied: Set<string>, hideBots: boolean): number {
+// Count open review threads, excluding threads opened by an excluded author —
+// matching the activity-feed filter.
+function countUnresolvedThreads(node: any, excludedAuthors: string[]): number {
   return (node.reviewThreads?.nodes ?? []).filter(Boolean).filter((t: any) => {
     if (t.isResolved) return false
-    const login = t.comments?.nodes?.[0]?.author?.login ?? ''
-    if (hideBots && isBotLogin(login)) return false
-    if (denied.has(login.toLowerCase())) return false
-    return true
+    return !isExcludedAuthor(t.comments?.nodes?.[0]?.author?.login, excludedAuthors)
   }).length
 }
 
@@ -48,34 +45,55 @@ function deriveReview(reviews: any[]): { state: PullRequest['reviewState']; appr
   return { state: 'none', approvals: 0 }
 }
 
-function summarizeChecks(rollup: any): ChecksSummary {
+const contextName = (n: any): string => (n.__typename === 'CheckRun' ? n.name : n.context) ?? ''
+
+// `required` (from the base branch's branch-protection rule) restricts the count
+// to checks required to merge, so a PR whose only failing checks are optional reads
+// as passing. Falsy/empty `required` means count every check (today's behavior) —
+// which also covers repos where the token can't read branch protection.
+function summarizeChecks(rollup: any, required?: string[]): ChecksSummary {
   if (!rollup) return { state: 'none', passed: 0, failed: 0, total: 0 }
-  const nodes: any[] = rollup.contexts?.nodes ?? []
+  const requiredSet = required && required.length > 0 ? new Set(required) : null
+  const allNodes: any[] = rollup.contexts?.nodes ?? []
+  const nodes = requiredSet ? allNodes.filter((n) => requiredSet.has(contextName(n))) : allNodes
   const total = nodes.length
   let passed = 0
   let failed = 0
+  let pending = 0
   for (const n of nodes) {
     if (n.__typename === 'CheckRun') {
       if (n.conclusion === 'SUCCESS') passed++
       else if (['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE'].includes(n.conclusion)) failed++
+      else if (n.conclusion == null) pending++
     } else if (n.__typename === 'StatusContext') {
       if (n.state === 'SUCCESS') passed++
       else if (n.state === 'FAILURE' || n.state === 'ERROR') failed++
+      else if (n.state === 'PENDING' || n.state === 'EXPECTED') pending++
     }
   }
-  const rollupState = (rollup.state ?? '').toUpperCase()
   let state: ChecksSummary['state']
-  if (rollupState === 'SUCCESS') state = 'success'
-  else if (rollupState === 'FAILURE' || rollupState === 'ERROR') state = 'failure'
-  else if (rollupState === 'PENDING' || rollupState === 'EXPECTED') state = 'pending'
-  else state = failed > 0 ? 'failure' : passed > 0 && passed === total ? 'success' : 'pending'
+  if (requiredSet) {
+    // Recompute from required-only counts; the rollup's own state reflects optional checks too.
+    if (failed > 0) state = 'failure'
+    else if (pending > 0) state = 'pending'
+    else if (total > 0) state = 'success'
+    else state = 'pending' // required checks configured but none have reported yet
+  } else {
+    const rollupState = (rollup.state ?? '').toUpperCase()
+    if (rollupState === 'SUCCESS') state = 'success'
+    else if (rollupState === 'FAILURE' || rollupState === 'ERROR') state = 'failure'
+    else if (rollupState === 'PENDING' || rollupState === 'EXPECTED') state = 'pending'
+    else state = failed > 0 ? 'failure' : passed > 0 && passed === total ? 'success' : 'pending'
+  }
   return { state, passed, failed, total }
 }
 
 export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRequest[] {
-  const denied = new Set((opts.excludedAuthors ?? []).map((a) => a.toLowerCase()))
-  const hideBots = opts.hideBots ?? false
-  return (nodes ?? []).filter(Boolean).map((n) => {
+  const excludedAuthors = opts.excludedAuthors ?? []
+  return (nodes ?? [])
+    .filter(Boolean)
+    .filter((n) => !isExcludedAuthor(n.author?.login, excludedAuthors))
+    .map((n) => {
     const review = deriveReview(n.reviews?.nodes ?? [])
     const updatedAtMs = Date.parse(n.updatedAt)
     return {
@@ -94,11 +112,15 @@ export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRe
       reviewState: review.state,
       approvals: review.approvals,
       mergeable: MERGEABLE_MAP[n.mergeable] ?? 'unknown',
-      checks: summarizeChecks(n.commits?.nodes?.[0]?.commit?.statusCheckRollup),
+      checks: summarizeChecks(
+        n.commits?.nodes?.[0]?.commit?.statusCheckRollup,
+        n.baseRef?.branchProtectionRule?.requiredStatusCheckContexts ?? undefined
+      ),
       additions: n.additions ?? 0,
       deletions: n.deletions ?? 0,
       changedFiles: n.changedFiles ?? 0,
-      unresolvedThreads: countUnresolvedThreads(n, denied, hideBots),
+      unresolvedThreads: countUnresolvedThreads(n, excludedAuthors),
+      labels: (n.labels?.nodes ?? []).map((l: any) => l?.name).filter(Boolean),
       updatedAt: n.updatedAt,
       isStale: opts.now - updatedAtMs > opts.staleThresholdMs,
       isDraft: !!n.isDraft

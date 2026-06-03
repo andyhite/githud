@@ -1,6 +1,6 @@
 import { Octokit } from 'octokit'
 import { DashboardSnapshot, Settings } from '@shared/types'
-import { DASHBOARD_QUERY, NEEDS_REVIEW_QUERY, MY_PRS_QUERY } from './github/queries'
+import { buildDashboardQuery, teamSearchQuery, ownerScopeClause, NEEDS_REVIEW_QUERY, MY_PRS_QUERY } from './github/queries'
 import { normalizePullRequests } from './github/normalize-prs'
 import { toPrState, PRState } from './github/pr-state'
 import { deriveEvents } from './github/derive-events'
@@ -10,14 +10,21 @@ import { appendEvents, loadPrState, savePrState } from './event-store'
 import { loadHidden, saveHidden, resolveHidden } from './hidden-store'
 import { recordSample } from './history-store'
 
+// Smoothing for the per-poll GraphQL cost. ~0.3 weights the latest poll while
+// still averaging over the last several, so the adaptive interval is stable but
+// adapts within a few polls when the query cost changes (e.g. new team labels).
+const COST_EWMA_ALPHA = 0.3
+
 export class Poller {
+  private costEwma: number | undefined
+
   constructor(private octokit: Octokit) {}
 
   get client(): Octokit {
     return this.octokit
   }
 
-  async refresh(settings: Settings): Promise<DashboardSnapshot> {
+  async refresh(settings: Settings, viewerLogin?: string): Promise<DashboardSnapshot> {
     const now = Date.now()
     const nowIso = new Date(now).toISOString()
     const staleThresholdMs = settings.staleThresholdDays * 24 * 60 * 60 * 1000
@@ -26,12 +33,20 @@ export class Poller {
     // even if the other fields resolved. Salvage the partial data so one bad
     // field (e.g. a transient search/backend error) doesn't blank the whole
     // dashboard — the `?? []` / `?? ''` accessors below tolerate missing fields.
+    // Team search is scoped to your repos + configured orgs (never global). With
+    // nothing to scope to (no viewer login yet AND no orgs), skip it rather than
+    // search all of GitHub. needsReview/mine are personal (@me) and unscoped.
+    const ownerClause = ownerScopeClause(viewerLogin, settings.teamOrgs ?? [])
+    const teamLabels = settings.teamLabels ?? []
+    // One team search covers every owner (space-OR'd) × every label (comma-OR'd);
+    // run it only when there's both something to scope to and a label to match.
+    const includeTeam = ownerClause !== null && teamLabels.length > 0
+    const variables: Record<string, string> = { needsReview: NEEDS_REVIEW_QUERY, mine: MY_PRS_QUERY }
+    if (includeTeam) variables.team = teamSearchQuery(ownerClause!, teamLabels)
+
     let data: any
     try {
-      data = await this.octokit.graphql(DASHBOARD_QUERY, {
-        needsReview: NEEDS_REVIEW_QUERY,
-        mine: MY_PRS_QUERY
-      })
+      data = await this.octokit.graphql(buildDashboardQuery(includeTeam), variables)
     } catch (err: any) {
       // Salvage a partial GraphQL response whenever usable data came back,
       // regardless of the error class name (Octokit's varies by version).
@@ -45,12 +60,21 @@ export class Poller {
       }
     }
 
+    // A secondary-rate-limit / empty response can resolve to a null/undefined
+    // body without throwing; turn that into a clean degraded poll instead of a
+    // confusing "Cannot read properties of undefined" TypeError downstream.
+    if (!data) throw new Error('GitHub returned an empty response (likely a rate limit)')
+
     const mineNodes: any[] = (data.mine?.nodes ?? []).filter(Boolean)
     const reviewNodes: any[] = (data.needsReview?.nodes ?? []).filter(Boolean)
 
-    const normOpts = { now, staleThresholdMs, excludedAuthors: settings.excludedAuthors, hideBots: settings.hideBots }
+    const normOpts = { now, staleThresholdMs, excludedAuthors: settings.excludedAuthors }
     const needsReview = normalizePullRequests(reviewNodes, normOpts)
     const myPullRequests = normalizePullRequests(mineNodes, normOpts)
+
+    // A single team search returns each PR at most once, so no dedupe is needed.
+    const teamNodes: any[] = (data.team?.nodes ?? []).filter(Boolean)
+    const teamPullRequests = normalizePullRequests(teamNodes, normOpts)
     const viewer = { login: data.viewer?.login ?? '', avatarUrl: data.viewer?.avatarUrl ?? '' }
 
     const nextStates: PRState[] = [
@@ -88,13 +112,11 @@ export class Poller {
     const allEvents = appendEvents(newEvents)
     savePrState([...nextStates, ...unresolvedFallenOut])
 
-    const events = filterEvents(allEvents, {
-      excludedAuthors: settings.excludedAuthors,
-      hideBots: settings.hideBots
-    })
+    const events = filterEvents(allEvents, settings.excludedAuthors)
 
     const { hiddenIds, kept } = resolveHidden(
-      [...needsReview, ...myPullRequests].map((p) => ({ id: p.id, updatedAt: p.updatedAt })),
+      // Team PRs are included so a hidden team-only PR isn't pruned as "fell out".
+      [...needsReview, ...myPullRequests, ...teamPullRequests].map((p) => ({ id: p.id, updatedAt: p.updatedAt })),
       loadHidden(),
       now
     )
@@ -104,11 +126,20 @@ export class Poller {
     const mergeDelta = newEvents.filter((e) => e.kind === 'merged').length
     const history = recordSample({ reviewQueue: needsReview.length, openWipSize, mergeDelta }, now)
 
+    // Smooth the per-poll cost so the adaptive interval paces against the typical
+    // query cost, not the last single sample.
+    const lastCost = data.rateLimit?.cost
+    if (typeof lastCost === 'number' && lastCost > 0) {
+      this.costEwma =
+        this.costEwma === undefined ? lastCost : COST_EWMA_ALPHA * lastCost + (1 - COST_EWMA_ALPHA) * this.costEwma
+    }
+
     return {
       fetchedAt: nowIso,
       viewer,
       needsReview,
       myPullRequests,
+      teamPullRequests,
       events,
       hiddenPrIds: hiddenIds,
       history,
@@ -117,7 +148,8 @@ export class Poller {
         resetAt: data.rateLimit?.resetAt ?? '',
         cost: data.rateLimit?.cost,
         used: data.rateLimit?.used,
-        limit: data.rateLimit?.limit
+        limit: data.rateLimit?.limit,
+        avgCost: this.costEwma !== undefined ? Math.round(this.costEwma) : undefined
       }
     }
   }

@@ -12,7 +12,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
     author: { login: 'me', avatarUrl: '' }, reviewers: [],
     reviewState: 'none', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'success', passed: 1, failed: 0, total: 1 },
-    additions: 0, deletions: 0, changedFiles: 0, unresolvedThreads: 0,
+    additions: 0, deletions: 0, changedFiles: 0, unresolvedThreads: 0, labels: [],
     updatedAt: '2026-06-01T00:00:00Z', isStale: false, isDraft: false, ...over
   }
 }
@@ -20,7 +20,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
 function snap(over: Partial<DashboardSnapshot> = {}): DashboardSnapshot {
   return {
     fetchedAt: '2026-06-02T00:00:00Z', viewer: { login: 'me', avatarUrl: '' },
-    needsReview: [pr()], myPullRequests: [], events: [], hiddenPrIds: [], history: [],
+    needsReview: [pr()], myPullRequests: [], teamPullRequests: [], events: [], hiddenPrIds: [], history: [],
     rateLimit: { remaining: 0, resetAt: '' }, ...over
   }
 }

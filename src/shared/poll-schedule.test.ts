@@ -12,22 +12,19 @@ describe('nextPollDelay', () => {
     expect(nextPollDelay(rl({ remaining: 5000, cost: 1 }), NOW)).toBe(BASE_POLL_MS)
   })
 
-  it('stretches the interval as remaining points run low', () => {
-    // remaining 100, cost 40, 60min to reset -> ideal = 3,600,000 * 40 / 100 = 24min,
-    // but capped at the time until reset (60min). 24min > base, so it slows down.
-    const delay = nextPollDelay(rl({ remaining: 100, cost: 40 }), NOW)
+  it('stretches the interval as remaining points approach the reserve', () => {
+    // limit 5000 -> reserve 1000; spendable = 2000 - 1000 = 1000; cost 40; 60min
+    // -> ideal = 3,600,000 * 40 / 1000 = 144,000ms (> base, under the reset cap).
+    const delay = nextPollDelay(rl({ remaining: 2000, cost: 40 }), NOW)
+    expect(delay).toBe((3_600_000 * 40) / 1000)
     expect(delay).toBeGreaterThan(BASE_POLL_MS)
-    expect(delay).toBe((3_600_000 * 40) / 100)
   })
 
-  it('waits until just past the reset when it cannot afford another poll', () => {
-    const delay = nextPollDelay(rl({ remaining: 5, cost: 40 }), NOW)
-    expect(delay).toBe(3_600_000 + 5_000)
-  })
-
-  it('never returns longer than the time until reset (plus the exhausted buffer)', () => {
-    const delay = nextPollDelay(rl({ remaining: 2, cost: 1 }), NOW)
-    expect(delay).toBeLessThanOrEqual(3_600_000)
+  it('waits for the reset once remaining reaches the reserve (keeps a budget buffer)', () => {
+    // remaining 1000 == reserve -> spendable 0 -> wait, even though the window is wide open.
+    expect(nextPollDelay(rl({ remaining: 1000, cost: 1 }), NOW)).toBe(3_600_000 + 5_000)
+    // well below the reserve too
+    expect(nextPollDelay(rl({ remaining: 200, cost: 40 }), NOW)).toBe(3_600_000 + 5_000)
   })
 
   it('falls back to the base interval when resetAt is missing or in the past', () => {
@@ -37,6 +34,24 @@ describe('nextPollDelay', () => {
 
   it('treats a missing cost as 1 point', () => {
     expect(nextPollDelay(rl({ remaining: 5000, cost: undefined }), NOW)).toBe(BASE_POLL_MS)
+  })
+
+  it('honours a caller-supplied base interval as the floor', () => {
+    expect(nextPollDelay(rl({ remaining: 5000, cost: 1 }), NOW, 120_000)).toBe(120_000)
+  })
+
+  it('paces against the smoothed avgCost when present, not the last sample', () => {
+    // last poll cost was cheap (1) but the smoothed cost is 40; pace on 40.
+    // spendable = 2000 - 1000 reserve = 1000 -> 3,600,000 * 40 / 1000 = 144,000.
+    const delay = nextPollDelay(rl({ remaining: 2000, cost: 1, avgCost: 40 }), NOW)
+    expect(delay).toBe((3_600_000 * 40) / 1000)
+  })
+
+  it('lets the reserve fraction be tuned (more budget allowed -> shorter wait)', () => {
+    // remaining 2000, cost 40, limit 5000. reserveFraction 0 -> spendable 2000.
+    expect(nextPollDelay(rl({ remaining: 2000, cost: 40 }), NOW, BASE_POLL_MS, 0)).toBe((3_600_000 * 40) / 2000)
+    // reserveFraction 0.5 -> reserve 2500 > remaining 2000 -> wait for reset.
+    expect(nextPollDelay(rl({ remaining: 2000, cost: 40 }), NOW, BASE_POLL_MS, 0.5)).toBe(3_600_000 + 5_000)
   })
 })
 

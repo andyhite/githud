@@ -20,7 +20,7 @@ describe('settings-store', () => {
   })
 
   it('persists and reloads settings', () => {
-    const next = { ...DEFAULT_SETTINGS, hideBots: false, excludedAuthors: ['noisybot'] }
+    const next = { ...DEFAULT_SETTINGS, staleThresholdDays: 7, excludedAuthors: ['noisybot'] }
     saveSettings(next)
     expect(loadSettings()).toEqual(next)
   })

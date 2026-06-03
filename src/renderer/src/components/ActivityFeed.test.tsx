@@ -39,6 +39,6 @@ describe('ActivityFeed', () => {
 
   it('renders an empty state', () => {
     render(<ActivityFeed events={[]} onRead={vi.fn()} />)
-    expect(screen.getByText(/no recent activity/i)).toBeInTheDocument()
+    expect(screen.getByText(/all quiet/i)).toBeInTheDocument()
   })
 })

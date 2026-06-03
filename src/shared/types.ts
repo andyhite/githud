@@ -27,7 +27,8 @@ export interface PullRequest {
   additions: number
   deletions: number
   changedFiles: number
-  unresolvedThreads: number // open review threads, excluding bot/excluded-author threads
+  unresolvedThreads: number // open review threads, excluding excluded-author threads
+  labels: string[] // label names; powers the team panel's label aggregation + filter chips
   updatedAt: string
   isStale: boolean
   isDraft: boolean
@@ -60,6 +61,9 @@ export interface RateLimit {
   cost?: number
   used?: number
   limit?: number
+  // Smoothed (EWMA) cost across recent polls — what the adaptive interval paces
+  // against, so a single anomalous poll doesn't swing the cadence. Set by the poller.
+  avgCost?: number
 }
 
 export interface DailyMetric {
@@ -74,18 +78,24 @@ export interface DashboardSnapshot {
   viewer: User
   needsReview: PullRequest[]
   myPullRequests: PullRequest[]
+  // Open PRs carrying any of the user-configured `teamLabels` (a team overview).
+  // Deduped across labels; NOT part of event derivation or history sampling.
+  teamPullRequests: PullRequest[]
   events: FeedEvent[]
   hiddenPrIds: string[]
   history: DailyMetric[]
   rateLimit: RateLimit
   error?: string
+  // When `error` is set, why: 'rate_limit' (GitHub budget/secondary limit — the
+  // poll loop is waiting for the reset) vs 'offline' (couldn't reach GitHub —
+  // retrying). Lets the TopBar word the status honestly. Absent on success.
+  errorKind?: 'rate_limit' | 'offline'
 }
 
 export interface Settings {
   staleThresholdDays: number
   notificationsEnabled: boolean
   excludedAuthors: string[]
-  hideBots: boolean
   // M1: which event kinds fire a desktop notification (master switch is notificationsEnabled). Empty array = notify on nothing.
   notifyKinds: FeedEventKind[]
   // M1: suppress notifications during this local-time window. null = always on. "HH:MM" 24h local; may wrap midnight (start > end).
@@ -94,17 +104,34 @@ export interface Settings {
   launchAtLogin: boolean
   // Charts: collapse state of the trend strip above the tables.
   chartsCollapsed: boolean
+  // Base auto-refresh cadence, in seconds (floor for the adaptive poll loop —
+  // it only ever backs OFF from this as the API budget runs low). Min 30.
+  refreshIntervalSeconds: number
+  // Max share (%) of the hourly GraphQL budget the app may consume before it
+  // stops polling until the reset. The rest is left in reserve (the budget is
+  // shared per-user across all your tokens/apps). 10–100; 100 = use it all.
+  apiBudgetPercent: number
+  // Labels aggregated into the "Team PRs" panel (open PRs carrying any of these).
+  // Empty = the panel is hidden. Also rendered as toggle chips in the panel header.
+  teamLabels: string[]
+  // Orgs to scope the Team PRs search to (besides your own repos, which are always
+  // included). Without this the search would span all of GitHub. org logins only —
+  // your personal repos come from the viewer login automatically.
+  teamOrgs: string[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   staleThresholdDays: 2,
   notificationsEnabled: true,
   excludedAuthors: [],
-  hideBots: true,
   notifyKinds: ['mention', 'changes_requested', 'ci_failed', 'changes_addressed', 'review_re_requested'],
   quietHours: null,
   launchAtLogin: false,
-  chartsCollapsed: false
+  chartsCollapsed: false,
+  refreshIntervalSeconds: 60,
+  apiBudgetPercent: 80,
+  teamLabels: ['frontend'],
+  teamOrgs: []
 }
 
 export interface NotificationSpec {
@@ -174,6 +201,10 @@ export interface GithudApi {
   getSettings(): Promise<Settings>
   saveSettings(settings: Settings): Promise<Settings>
   openExternal(url: string): Promise<void>
+  // Fires one desktop notification immediately (bypasses notifyKinds/quiet hours)
+  // so the user can confirm macOS is actually delivering them. Returns false when
+  // the platform reports no notification support.
+  sendTestNotification(): Promise<boolean>
   markRead(id: string): Promise<FeedEvent[]>
   markAllRead(): Promise<FeedEvent[]>
   hidePr(id: string, updatedAt: string): Promise<DashboardSnapshot>

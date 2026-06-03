@@ -2,7 +2,31 @@ import { Octokit } from 'octokit'
 import { classifyTokenError, TokenErrorReason } from './rate-limit'
 
 export function createClient(token: string): Octokit {
-  return new Octokit({ auth: token, userAgent: 'githud/0.1.0' })
+  return new Octokit({
+    auth: token,
+    userAgent: 'githud/0.1.0',
+    // The `octokit` umbrella bundles the throttling plugin. Without handlers it
+    // emits an opaque "SecondaryRateLimit detected" warning and gives up; supply
+    // ones that log what actually happened and let the error surface so the
+    // adaptive poll loop reschedules. We deliberately do NOT auto-retry inside a
+    // request (that would block a poll for up to `retryAfter` seconds and fight
+    // our own backoff) — returning false rethrows, doPoll degrades, and
+    // scheduleNextPoll pins the next poll to the reset window.
+    throttle: {
+      onRateLimit(retryAfter: number, options: any, _octokit: unknown, retryCount: number) {
+        console.warn(
+          `[octokit] primary rate limit on ${options.method} ${options.url} — retry-after ${retryAfter}s (attempt ${retryCount}); letting the poll loop back off`
+        )
+        return false
+      },
+      onSecondaryRateLimit(retryAfter: number, options: any, _octokit: unknown, retryCount: number) {
+        console.warn(
+          `[octokit] secondary rate limit on ${options.method} ${options.url} — retry-after ${retryAfter}s (attempt ${retryCount}). The query is too costly/frequent; the poll loop will back off`
+        )
+        return false
+      }
+    }
+  })
 }
 
 export type TokenValidation =

@@ -3,6 +3,7 @@ import { api } from '../api'
 import { relativeAge } from './NeedsReviewTable'
 import { EventIcon } from './icons'
 import { severityForKind } from './activity-severity'
+import { EmptyState } from './EmptyState'
 
 const ACTION: Record<FeedEvent['kind'], string> = {
   approved: 'approved',
@@ -60,7 +61,7 @@ export function ActivityFeed({
   loading
 }: { events: FeedEvent[]; onRead: (id: string) => void; loading?: boolean }) {
   if (loading && events.length === 0) return <p className="empty">Loading…</p>
-  if (events.length === 0) return <p className="empty">No recent activity.</p>
+  if (events.length === 0) return <EmptyState variant="activity" />
   return (
     <div className="activity-feed">
       {events.map((e) => <EventRow key={e.id} event={e} onRead={onRead} />)}

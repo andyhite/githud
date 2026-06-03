@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NeedsReviewTable, ShowHiddenToggle } from './NeedsReviewTable'
 import { MyPullRequestsTable } from './MyPullRequestsTable'
+import { LabelFilterChips } from './LabelFilterChips'
 import type { PullRequest } from '@shared/types'
 
 function pr(over: Partial<PullRequest> = {}): PullRequest {
@@ -12,7 +13,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
     author: { login: 'asmith', avatarUrl: '' }, reviewers: [{ login: 'me', avatarUrl: '' }],
     reviewState: 'changes_requested', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'failure', passed: 11, failed: 1, total: 12 },
-    additions: 40, deletions: 8, changedFiles: 3, unresolvedThreads: 0,
+    additions: 40, deletions: 8, changedFiles: 3, unresolvedThreads: 0, labels: [],
     updatedAt: '2026-06-01T00:00:00Z', isStale: true, isDraft: false, ...over
   }
 }
@@ -22,7 +23,18 @@ beforeEach(() => { window.api = { openExternal: vi.fn(), copyToClipboard: vi.fn(
 describe('NeedsReviewTable', () => {
   it('renders an empty state with no rows', () => {
     render(<NeedsReviewTable items={[]} />)
-    expect(screen.getByText(/nothing needs your review/i)).toBeInTheDocument()
+    expect(screen.getByText(/inbox zero/i)).toBeInTheDocument()
+  })
+
+  it('shows the empty state when every item is hidden and hidden rows are collapsed', () => {
+    render(<NeedsReviewTable items={[pr({ id: 'p1' })]} hiddenIds={['p1']} showHidden={false} />)
+    expect(screen.getByText(/inbox zero/i)).toBeInTheDocument()
+  })
+
+  it('shows the hidden rows (not the empty state) when hidden rows are expanded', () => {
+    render(<NeedsReviewTable items={[pr({ id: 'p1' })]} hiddenIds={['p1']} showHidden={true} />)
+    expect(screen.queryByText(/inbox zero/i)).not.toBeInTheDocument()
+    expect(screen.getByText('Fix nav focus trap')).toBeInTheDocument()
   })
 
   it('renders a row with author + checks in the meta line and opens the PR on click', async () => {
@@ -89,7 +101,40 @@ describe('MyPullRequestsTable', () => {
 
   it('renders an empty state with no rows', () => {
     render(<MyPullRequestsTable items={[]} />)
-    expect(screen.getByText(/no open pull requests/i)).toBeInTheDocument()
+    expect(screen.getByText(/nothing in flight/i)).toBeInTheDocument()
+  })
+
+  it('shows the empty state when every item is hidden and hidden rows are collapsed', () => {
+    render(<MyPullRequestsTable items={[pr({ id: 'p1' })]} hiddenIds={['p1']} showHidden={false} />)
+    expect(screen.getByText(/nothing in flight/i)).toBeInTheDocument()
+  })
+})
+
+describe('MyPullRequestsTable as team panel', () => {
+  it('shows the author when showAuthor is set and uses the team empty state', () => {
+    render(<MyPullRequestsTable items={[pr({ author: { login: 'teammate', avatarUrl: '' } })]} showAuthor />)
+    expect(screen.getByText('teammate')).toBeInTheDocument()
+  })
+
+  it('renders the team empty-state copy when there are no rows', () => {
+    render(<MyPullRequestsTable items={[]} emptyVariant="team" />)
+    expect(screen.getByText(/no team prs/i)).toBeInTheDocument()
+  })
+})
+
+describe('LabelFilterChips', () => {
+  it('renders nothing with no labels', () => {
+    const { container } = render(<LabelFilterChips labels={[]} muted={[]} onToggle={vi.fn()} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('marks active chips pressed, muted chips unpressed, and toggles on click', async () => {
+    const onToggle = vi.fn()
+    render(<LabelFilterChips labels={['frontend', 'backend']} muted={['backend']} onToggle={onToggle} />)
+    expect(screen.getByRole('button', { name: 'frontend' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'backend' })).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(screen.getByRole('button', { name: 'frontend' }))
+    expect(onToggle).toHaveBeenCalledWith('frontend')
   })
 })
 

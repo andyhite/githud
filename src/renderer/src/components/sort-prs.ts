@@ -25,3 +25,9 @@ export function sortMyPrs(prs: PullRequest[]): PullRequest[] {
     return r !== 0 ? r : Date.parse(a.updatedAt) - Date.parse(b.updatedAt)
   })
 }
+
+// The team panel is a stale-work overview, so it sorts purely by age
+// (oldest-waiting first) — unlike sortMyPrs, status/readiness doesn't reorder it.
+export function sortTeamPrs(prs: PullRequest[]): PullRequest[] {
+  return [...prs].sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt))
+}

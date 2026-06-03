@@ -7,7 +7,7 @@ function ev(id: string, over: Partial<FeedEvent> = {}): FeedEvent {
 }
 
 function snap(events: FeedEvent[]): DashboardSnapshot {
-  return { fetchedAt: 'x', viewer: { login: 'me', avatarUrl: '' }, needsReview: [], myPullRequests: [], events, hiddenPrIds: [], history: [], rateLimit: { remaining: 0, resetAt: '' } }
+  return { fetchedAt: 'x', viewer: { login: 'me', avatarUrl: '' }, needsReview: [], myPullRequests: [], teamPullRequests: [], events, hiddenPrIds: [], history: [], rateLimit: { remaining: 0, resetAt: '' } }
 }
 
 const BASE_OPTS = { notifyKinds: ['approved', 'ci_failed', 'changes_requested'] as const, now: new Date(), quietHours: null } as const

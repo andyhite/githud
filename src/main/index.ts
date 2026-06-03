@@ -15,12 +15,12 @@ import { reviewPr } from './ai/review'
 import { fetchPrDiff } from './github/fetch-diff'
 import type { TriageVerdict, ReviewResult } from '@shared/types'
 import { createClient, validateToken } from './github/client'
-import { filterEvents } from './github/filter-events'
+import { filterEvents, applyAuthorFilters } from './github/filter-events'
 import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
 import { isSafeExternalUrl } from './safe-url'
 import { visibleNeedsReviewCount, dockBadge } from './tray-label'
-import { nextPollDelay, BASE_POLL_MS } from '@shared/poll-schedule'
+import { nextPollDelay } from '@shared/poll-schedule'
 import { parseRateLimitError } from './github/rate-limit'
 
 let mainWindow: BrowserWindow | null = null
@@ -73,8 +73,24 @@ async function maybeGenerateDeltaDigest(): Promise<void> {
 // App brought to the foreground: refresh so the delta reflects current state,
 // then regenerate the brief digest. Does NOT clear the tray/dock badge (that
 // reflects the needs-review count, not unread).
+//
+// But the adaptive loop backs off when the shared GraphQL budget runs low, and
+// each poll is expensive (~67 points). A foreground poll bypasses the loop's
+// timer, so without this gate, rapidly switching back to the app would drain
+// the budget the backoff is trying to protect. When we're throttled (the next
+// scheduled delay exceeds the base cadence), skip the network poll and just
+// regenerate the digest off the cached snapshot. The auto loop still polls on
+// its (backed-off) schedule, and the manual Refresh button remains an explicit
+// override that always hits GitHub.
 function onForeground(): void {
   if (!hasToken()) return
+  const { baseMs, reserveFraction } = pollCadence()
+  const throttled =
+    !!lastSnapshot && nextPollDelay(lastSnapshot.rateLimit, Date.now(), baseMs, reserveFraction) > baseMs
+  if (throttled) {
+    void maybeGenerateDeltaDigest()
+    return
+  }
   void runPoll().then(() => maybeGenerateDeltaDigest())
 }
 
@@ -123,6 +139,10 @@ function createWindow(): void {
 
 function applyLoginItem(settings: Settings): void {
   if (process.platform !== 'darwin' && process.platform !== 'win32') return
+  // Only register a login item in a real production build. In dev (`pnpm run
+  // dev`) `app.isPackaged` is false and the "app" is the Electron binary itself
+  // — registering it as a login item would launch raw Electron at every boot.
+  if (!app.isPackaged) return
   try {
     // Only touch the OS when the desired state differs from the current one.
     // setLoginItemSettings logs a native "Operation not permitted" error to
@@ -185,12 +205,17 @@ async function doPoll(): Promise<DashboardSnapshot> {
   }
   const settings = loadSettings()
   try {
-    const snapshot = await poller!.refresh(settings)
+    // viewerLogin scopes the team search to your own repos; pass whatever we know
+    // (set at startup/saveToken, refreshed below) — the poll still works without it.
+    const snapshot = await poller!.refresh(settings, viewerLogin)
     // First successful poll only seeds the baseline; it intentionally fires
     // nothing, even though lastSnapshot may be a non-null disk-cache seed.
     fireNotifications(baselineSeeded ? lastSnapshot : null, snapshot, settings)
     baselineSeeded = true
     lastSnapshot = snapshot
+    // Keep viewerLogin current so the next poll can scope the team search even if
+    // startup validation was skipped/rate-limited.
+    if (snapshot.viewer?.login) viewerLogin = snapshot.viewer.login
     const rl = snapshot.rateLimit
     console.log(`[poll] graphql cost=${rl.cost ?? '?'} remaining=${rl.remaining}${rl.limit ? '/' + rl.limit : ''} resetAt=${rl.resetAt}`)
     cacheSnapshot(snapshot)
@@ -207,16 +232,21 @@ async function doPoll(): Promise<DashboardSnapshot> {
     if (parsedRl) {
       console.log(`[poll] rate-limited; resets at ${parsedRl.resetAt} (remaining=${parsedRl.remaining})`)
     }
-    // Keep last good data; surface the error on a degraded snapshot.
+    // Keep last good data; surface the error on a degraded snapshot. errorKind
+    // lets the UI distinguish "rate limited (waiting for reset)" from "offline
+    // (retrying)" — parsedRl is set only for rate-limit errors (incl. secondary
+    // limits via retry-after), so everything else reads as offline.
+    const errorKind: DashboardSnapshot['errorKind'] = parsedRl ? 'rate_limit' : 'offline'
     const degraded: DashboardSnapshot = lastSnapshot
-      ? { ...lastSnapshot, error: err?.message ?? 'Refresh failed', rateLimit: parsedRl ?? lastSnapshot.rateLimit }
+      ? { ...lastSnapshot, error: err?.message ?? 'Refresh failed', errorKind, rateLimit: parsedRl ?? lastSnapshot.rateLimit }
       : {
           fetchedAt: new Date().toISOString(),
           viewer: { login: viewerLogin ?? '', avatarUrl: '' },
-          needsReview: [], myPullRequests: [], events: [], hiddenPrIds: [],
+          needsReview: [], myPullRequests: [], teamPullRequests: [], events: [], hiddenPrIds: [],
           history: [],
           rateLimit: parsedRl ?? { remaining: 0, resetAt: '' },
-          error: err?.message ?? 'Refresh failed'
+          error: err?.message ?? 'Refresh failed',
+          errorKind
         }
     // Persist the accurate rate limit so scheduleNextPoll reads it (the success
     // path overwrites lastSnapshot on the next good poll). Only when we actually
@@ -245,14 +275,26 @@ function runPoll(): Promise<DashboardSnapshot> {
   return inFlightPoll
 }
 
+// The adaptive cadence inputs derived from the user's settings: the base floor
+// (clamped >=30s so it can't hammer) and the reserve share we DON'T spend
+// (1 - the % the user lets us use). Shared by the poll loop and the foreground
+// gate so both reason about the same budget the same way.
+function pollCadence(): { baseMs: number; reserveFraction: number } {
+  const s = loadSettings()
+  const baseMs = Math.max(30, s.refreshIntervalSeconds || 60) * 1000
+  const reserveFraction = 1 - Math.min(Math.max(s.apiBudgetPercent ?? 80, 10), 100) / 100
+  return { baseMs, reserveFraction }
+}
+
 // Self-scheduling poll loop. The next delay is derived from the last poll's
 // GraphQL rate-limit state (nextPollDelay) so we back off as the hourly budget
 // runs low instead of hammering the API into a "quota exhausted" error.
 function scheduleNextPoll(): void {
   if (!polling) return
   if (pollTimer) clearTimeout(pollTimer)
-  const delay = lastSnapshot ? nextPollDelay(lastSnapshot.rateLimit, Date.now()) : BASE_POLL_MS
-  if (delay > BASE_POLL_MS) {
+  const { baseMs, reserveFraction } = pollCadence()
+  const delay = lastSnapshot ? nextPollDelay(lastSnapshot.rateLimit, Date.now(), baseMs, reserveFraction) : baseMs
+  if (delay > baseMs) {
     console.log(`[poll] backing off ${Math.round(delay / 1000)}s (remaining=${lastSnapshot?.rateLimit.remaining} resetAt=${lastSnapshot?.rateLimit.resetAt})`)
   }
   pollTimer = setTimeout(() => { void runPoll().finally(scheduleNextPoll) }, delay)
@@ -268,7 +310,7 @@ function startPolling(): void {
 function recomputeHidden(): DashboardSnapshot | null {
   if (!lastSnapshot) return null
   const { hiddenIds } = resolveHidden(
-    [...lastSnapshot.needsReview, ...lastSnapshot.myPullRequests].map((p) => ({
+    [...lastSnapshot.needsReview, ...lastSnapshot.myPullRequests, ...lastSnapshot.teamPullRequests].map((p) => ({
       id: p.id,
       updatedAt: p.updatedAt
     })),
@@ -313,7 +355,15 @@ function registerIpc(): void {
   ipcMain.handle('saveSettings', (_e, settings: Settings): Settings => {
     const saved = saveSettings(settings)
     applyLoginItem(saved)
-    void runPoll() // re-apply filters immediately
+    // Apply a changed author denylist to data already in memory right away, so
+    // excluded PRs/events vanish instantly — independent of whether the follow-up
+    // network poll succeeds (it may be rate-limited or offline).
+    if (lastSnapshot) {
+      lastSnapshot = applyAuthorFilters(lastSnapshot, saved.excludedAuthors)
+      cacheSnapshot(lastSnapshot)
+      sendSnapshot(lastSnapshot)
+    }
+    void runPoll() // then re-fetch fresh data with the new filters
     return saved
   })
 
@@ -323,11 +373,9 @@ function registerIpc(): void {
 
   // The event store holds the full unfiltered set; the renderer only ever shows
   // the filtered feed (poller.refresh applies the same filter). Filter here too
-  // so reading an event doesn't resurface hidden bot/excluded-author events.
-  const filterForUi = (events: ReturnType<typeof markRead>) => {
-    const { excludedAuthors, hideBots } = loadSettings()
-    return filterEvents(events, { excludedAuthors, hideBots })
-  }
+  // so reading an event doesn't resurface hidden excluded-author events.
+  const filterForUi = (events: ReturnType<typeof markRead>) =>
+    filterEvents(events, loadSettings().excludedAuthors)
   ipcMain.handle('markRead', (_e, id: string) => filterForUi(markRead(id)))
   ipcMain.handle('markAllRead', () => filterForUi(markAllRead()))
 
@@ -345,6 +393,14 @@ function registerIpc(): void {
     return recomputeHidden() ?? lastSnapshot
   })
   ipcMain.handle('copyToClipboard', (_e, text: string) => { clipboard.writeText(text ?? '') })
+  // Fires a notification unconditionally (ignores notifyKinds/quiet hours) so the
+  // user can confirm macOS delivery — and, on a true first run, this is the call
+  // that triggers the one-time OS permission prompt (Electron can't re-prompt).
+  ipcMain.handle('sendTestNotification', (): boolean => {
+    if (!Notification.isSupported()) return false
+    new Notification({ title: 'githud', body: 'Test notification — notifications are working.' }).show()
+    return true
+  })
   ipcMain.handle('getAiStatus', () => ({ hasKey: hasAiKey() }))
   ipcMain.handle('saveAiKey', async (_e, key: string) => {
     if (!(await validateAiKey(key))) return { ok: false, error: 'Anthropic rejected the key.' }

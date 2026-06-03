@@ -3,6 +3,7 @@ import { PullRequest, TriageVerdict } from '@shared/types'
 import { api } from '../api'
 import { computeSnoozeUntil } from './snooze'
 import { mergeReadiness } from './pr-status'
+import { EmptyState } from './EmptyState'
 
 export interface HideProps {
   hiddenIds?: string[]
@@ -218,8 +219,10 @@ export function NeedsReviewTable({
   const hidden = items.filter((pr) => hiddenSet.has(pr.id))
 
   if (loading && items.length === 0) return <p className="empty">Loading…</p>
-  if (visible.length === 0 && hidden.length === 0)
-    return <p className="empty">Nothing needs your review. 🎉</p>
+  // Empty state when nothing is actually rendered. Hidden rows only count if the
+  // user expanded them; otherwise an all-hidden queue still reads as inbox-zero
+  // (the "show hidden (N)" toggle lives in the panel header, so they're reachable).
+  if (visible.length === 0 && !(showHidden && hidden.length > 0)) return <EmptyState variant="review" />
 
   const row = (pr: PullRequest, isHidden: boolean) => (
     <tr key={pr.id} className={[isHidden ? 'row-hidden' : '', pr.id === selectedId ? 'row-selected' : ''].filter(Boolean).join(' ') || undefined}>

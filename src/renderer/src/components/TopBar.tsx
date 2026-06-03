@@ -1,23 +1,25 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { DashboardSnapshot } from '@shared/types'
-import { nextPollDelay, formatInterval, BASE_POLL_MS } from '@shared/poll-schedule'
+import { nextPollDelay, formatInterval, BASE_POLL_MS, RESERVE_FRACTION } from '@shared/poll-schedule'
 import { relativeAge } from './NeedsReviewTable'
 
 // Data older than ~2x the 30s poll interval is treated as stale.
 const STALE_MS = 90_000
-// GraphQL budget is 5000 points/hr; warn well before exhaustion.
-const RATE_LIMIT_WARN = 500
 
 export function TopBar({
   snapshot,
   onRefresh,
   onOpenSettings,
-  isFetching
+  isFetching,
+  pollBaseMs = BASE_POLL_MS,
+  pollReserveFraction = RESERVE_FRACTION
 }: {
   snapshot: DashboardSnapshot | null
   onRefresh: () => void
   onOpenSettings: () => void
   isFetching: boolean
+  pollBaseMs?: number
+  pollReserveFraction?: number
 }) {
   // Tick so the relative age — and the stale escalation — keeps advancing even
   // when no snapshot arrives (silent timer stall / machine sleep), since the
@@ -28,56 +30,63 @@ export function TopBar({
     return () => clearInterval(t)
   }, [])
 
-  // Counts must exclude hidden PRs to match the panel headers and tray badge.
-  const hidden = new Set(snapshot?.hiddenPrIds ?? [])
-  const failing = snapshot?.myPullRequests.filter((p) => !hidden.has(p.id) && p.checks.state === 'failure').length ?? 0
-  const needs = snapshot?.needsReview.filter((p) => !hidden.has(p.id)).length ?? 0
-  // Summary = review queue; the failing count is shown only by the badge below.
-  const summary = needs === 0 ? 'all caught up' : `${needs} to review`
-
   const ageMs = snapshot ? Date.now() - Date.parse(snapshot.fetchedAt) : 0
   const isStale = !!snapshot && !snapshot.error && ageMs > STALE_MS
 
   const rl = snapshot?.rateLimit
-  const lowBudget = !!rl && !!rl.resetAt && rl.remaining <= RATE_LIMIT_WARN
   const resetInMin = rl?.resetAt ? Math.max(1, Math.round((Date.parse(rl.resetAt) - Date.now()) / 60_000)) : 0
 
   // The interval the main poll loop will use next, derived from the same rate
-  // limit (nextPollDelay is shared). Grows above the base when the API budget
-  // is running low, so showing it explains why refreshes slow down.
-  const pollMs = rl ? nextPollDelay(rl, Date.now()) : BASE_POLL_MS
-  const throttled = pollMs > BASE_POLL_MS
-  const pollTitle = throttled
-    ? `Auto-refresh slowed to conserve the GitHub API budget (resets in ~${resetInMin}m)`
-    : 'Auto-refresh interval'
+  // limit (nextPollDelay is shared). Grows above the base when the budget is
+  // low, which is why the count next to the refresh icon goes amber + larger.
+  const pollMs = rl ? nextPollDelay(rl, Date.now(), pollBaseMs, pollReserveFraction) : pollBaseMs
+  const throttled = pollMs > pollBaseMs
+
+  // One consolidated connection/freshness status (left, next to the brand).
+  // Error states win over staleness; the happy path is a quiet "updated Nm ago".
+  let status: ReactNode = null
+  if (snapshot?.error) {
+    status =
+      snapshot.errorKind === 'rate_limit' ? (
+        <span
+          className="badge warn"
+          title={`GitHub API budget reached — auto-refresh is paused until it resets${resetInMin ? ` (~${resetInMin}m)` : ''}. Your token is fine; the budget is shared across all your tokens.`}
+        >
+          rate limited · waiting{resetInMin ? ` ~${resetInMin}m` : ''}
+        </span>
+      ) : (
+        <span className="badge warn" title="Can't reach GitHub — retrying automatically">
+          offline · retrying
+        </span>
+      )
+  } else if (isStale) {
+    status = (
+      <span className="badge warn" title="Data may be out of date — the last refresh didn't complete recently">
+        stale · {relativeAge(snapshot.fetchedAt)} old
+      </span>
+    )
+  } else if (snapshot) {
+    status = <span className="refreshed">updated {relativeAge(snapshot.fetchedAt)} ago</span>
+  }
+
+  const refreshTitle = throttled
+    ? `Refresh now · auto-refresh slowed to ${formatInterval(pollMs)} to conserve the GitHub API budget`
+    : `Refresh now · auto-refreshes every ${formatInterval(pollMs)}`
 
   return (
     <header className="top-bar">
       <span className="brand">githud</span>
-      <span className="summary">{summary}</span>
-      {failing > 0 && <span className="badge bad">✗ {failing} failing</span>}
+      {status}
       <span className="spacer" />
-      {lowBudget && (
-        <span className="badge warn" title={`GitHub API budget low — resets in ~${resetInMin}m`}>
-          {rl!.remaining} API left
-        </span>
-      )}
-      {snapshot?.error && <span className="badge warn" title={snapshot.error}>offline — retrying</span>}
-      {snapshot &&
-        (isStale ? (
-          <span className="badge warn" title="Data may be out of date — last refresh did not complete recently">
-            stale · {relativeAge(snapshot.fetchedAt)} old
-          </span>
-        ) : (
-          <span className="refreshed">updated {relativeAge(snapshot.fetchedAt)} ago</span>
-        ))}
-      {snapshot && (
-        <span className={throttled ? 'poll-interval throttled' : 'poll-interval'} title={pollTitle}>
-          ↻ {formatInterval(pollMs)}
-        </span>
-      )}
-      <button onClick={onRefresh} disabled={isFetching} aria-label="Refresh" title="Refresh">
-        {isFetching ? '↻…' : '↻'}
+      <button
+        className="refresh-btn"
+        onClick={onRefresh}
+        disabled={isFetching}
+        aria-label="Refresh"
+        title={refreshTitle}
+      >
+        <span className="refresh-icon">{isFetching ? '↻…' : '↻'}</span>
+        <span className={`refresh-interval${throttled ? ' throttled' : ''}`}>{formatInterval(pollMs)}</span>
       </button>
       <button onClick={onOpenSettings} aria-label="Settings" title="Settings">
         ⚙
