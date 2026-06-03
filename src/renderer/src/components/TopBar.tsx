@@ -11,12 +11,16 @@ export function TopBar({
   snapshot,
   onRefresh,
   onOpenSettings,
-  isFetching
+  isFetching,
+  query,
+  onQueryChange
 }: {
   snapshot: DashboardSnapshot | null
   onRefresh: () => void
   onOpenSettings: () => void
   isFetching: boolean
+  query: string
+  onQueryChange: (q: string) => void
 }) {
   // Tick so the relative age — and the stale escalation — keeps advancing even
   // when no snapshot arrives (silent timer stall / machine sleep), since the
@@ -42,6 +46,14 @@ export function TopBar({
     <header className="top-bar">
       <span className="brand">githud</span>
       <span className="summary">{summary}</span>
+      <input
+        className="filter-input"
+        type="search"
+        placeholder="Filter…"
+        aria-label="Filter"
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+      />
       {failing > 0 && <span className="badge bad">✗ {failing} failing</span>}
       <span className="spacer" />
       {lowBudget && (

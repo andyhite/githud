@@ -10,6 +10,7 @@ import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
 import { sortNeedsReview, sortMyPrs } from './components/sort-prs'
+import { matchesPr, matchesEvent } from './components/match'
 
 export default function App() {
   const [authChecked, setAuthChecked] = useState(false)
@@ -39,6 +40,7 @@ function Dashboard({
   onCloseSettings: () => void
 }) {
   const { data: snapshot, refetch, isFetching } = useDashboard()
+  const [query, setQuery] = useState('')
   // Before any snapshot (cold start, no disk cache yet) data is undefined.
   // Distinguish that from a genuinely-empty result so we don't flash the
   // cheerful "all caught up" empty states before the first data arrives.
@@ -66,13 +68,15 @@ function Dashboard({
         onRefresh={() => refetch()}
         onOpenSettings={onOpenSettings}
         isFetching={isFetching}
+        query={query}
+        onQueryChange={setQuery}
       />
       <main className="layout">
         <section className="tables">
           <div className="panel">
             <h2>Needs my review <span className="count">{visibleNeedsReview}</span></h2>
             <NeedsReviewTable
-              items={sortNeedsReview(snapshot?.needsReview ?? [])}
+              items={sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)))}
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
@@ -82,7 +86,7 @@ function Dashboard({
           <div className="panel">
             <h2>My open PRs <span className="count">{visibleMine}</span></h2>
             <MyPullRequestsTable
-              items={sortMyPrs(snapshot?.myPullRequests ?? [])}
+              items={sortMyPrs((snapshot?.myPullRequests ?? []).filter((p) => matchesPr(p, query)))}
               hiddenIds={hiddenIds}
               onHide={onHide}
               onUnhide={onUnhide}
@@ -96,7 +100,7 @@ function Dashboard({
             <span className="spacer" />
             {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
           </h2>
-          <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
+          <ActivityFeed events={(snapshot?.events ?? []).filter((e) => matchesEvent(e, query))} onRead={onRead} loading={loading} />
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}

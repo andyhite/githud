@@ -22,6 +22,9 @@ body { margin: 0; background: var(--bg); color: var(--text);
   background: var(--panel); border-bottom: 1px solid var(--border); }
 .top-bar .brand { font-weight: 700; color: var(--bright); }
 .top-bar .summary { color: var(--muted); }
+.top-bar .filter-input { background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); border-radius: 7px; padding: 4px 10px; font-size: 13px; width: 180px; }
+.top-bar .filter-input:focus { outline: none; border-color: var(--blue); }
 .top-bar .spacer { flex: 1; }
 .top-bar button { background: transparent; border: 1px solid var(--border);
   color: var(--text); border-radius: 7px; padding: 5px 12px; font-size: 23px;
