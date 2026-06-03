@@ -55,6 +55,11 @@ export interface FeedEvent {
 export interface RateLimit {
   remaining: number
   resetAt: string
+  // GraphQL point accounting (optional: older cached snapshots may lack them).
+  // `cost` is what the last query spent; `limit`/`used` are the hourly window.
+  cost?: number
+  used?: number
+  limit?: number
 }
 
 export interface DailyMetric {

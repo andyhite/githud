@@ -20,13 +20,13 @@ import { Poller } from './poller'
 import { diffSnapshots } from './notifier'
 import { isSafeExternalUrl } from './safe-url'
 import { visibleNeedsReviewCount, dockBadge } from './tray-label'
-
-const POLL_INTERVAL_MS = 30_000
+import { nextPollDelay, BASE_POLL_MS } from '@shared/poll-schedule'
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let poller: Poller | null = null
-let timer: ReturnType<typeof setInterval> | null = null
+let pollTimer: ReturnType<typeof setTimeout> | null = null
+let polling = false
 let lastSnapshot: DashboardSnapshot | null = null
 let viewerLogin: string | undefined
 let inFlightPoll: Promise<DashboardSnapshot> | null = null
@@ -190,6 +190,8 @@ async function doPoll(): Promise<DashboardSnapshot> {
     fireNotifications(baselineSeeded ? lastSnapshot : null, snapshot, settings)
     baselineSeeded = true
     lastSnapshot = snapshot
+    const rl = snapshot.rateLimit
+    console.log(`[poll] graphql cost=${rl.cost ?? '?'} remaining=${rl.remaining}${rl.limit ? '/' + rl.limit : ''} resetAt=${rl.resetAt}`)
     cacheSnapshot(snapshot)
     sendSnapshot(snapshot)
     return snapshot
@@ -231,10 +233,23 @@ function runPoll(): Promise<DashboardSnapshot> {
   return inFlightPoll
 }
 
+// Self-scheduling poll loop. The next delay is derived from the last poll's
+// GraphQL rate-limit state (nextPollDelay) so we back off as the hourly budget
+// runs low instead of hammering the API into a "quota exhausted" error.
+function scheduleNextPoll(): void {
+  if (!polling) return
+  if (pollTimer) clearTimeout(pollTimer)
+  const delay = lastSnapshot ? nextPollDelay(lastSnapshot.rateLimit, Date.now()) : BASE_POLL_MS
+  if (delay > BASE_POLL_MS) {
+    console.log(`[poll] backing off ${Math.round(delay / 1000)}s (remaining=${lastSnapshot?.rateLimit.remaining} resetAt=${lastSnapshot?.rateLimit.resetAt})`)
+  }
+  pollTimer = setTimeout(() => { void runPoll().finally(scheduleNextPoll) }, delay)
+}
+
 function startPolling(): void {
-  if (timer) return
-  timer = setInterval(() => { void runPoll() }, POLL_INTERVAL_MS)
-  void runPoll()
+  if (polling) return
+  polling = true
+  void runPoll().finally(scheduleNextPoll)
 }
 
 // Recompute hiddenPrIds against the in-memory snapshot (no network) and push it.

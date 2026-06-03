@@ -53,7 +53,7 @@ const PR_FIELDS = `
 export const DASHBOARD_QUERY = `
 query Dashboard($needsReview: String!, $mine: String!) {
   viewer { login avatarUrl }
-  rateLimit { remaining resetAt }
+  rateLimit { limit cost remaining used resetAt }
   needsReview: search(query: $needsReview, type: ISSUE, first: 50) {
     nodes { ... on PullRequest { ${PR_FIELDS} } }
   }

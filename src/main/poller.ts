@@ -112,7 +112,13 @@ export class Poller {
       events,
       hiddenPrIds: hiddenIds,
       history,
-      rateLimit: { remaining: data.rateLimit?.remaining ?? 0, resetAt: data.rateLimit?.resetAt ?? '' }
+      rateLimit: {
+        remaining: data.rateLimit?.remaining ?? 0,
+        resetAt: data.rateLimit?.resetAt ?? '',
+        cost: data.rateLimit?.cost,
+        used: data.rateLimit?.used,
+        limit: data.rateLimit?.limit
+      }
     }
   }
 }
