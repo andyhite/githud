@@ -24,7 +24,8 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .top-bar .summary { color: var(--muted); }
 .top-bar .spacer { flex: 1; }
 .top-bar button { background: transparent; border: 1px solid var(--border);
-  color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+  color: var(--text); border-radius: 7px; padding: 5px 12px; font-size: 23px;
+  line-height: 1; cursor: pointer;
   transition: background .12s, border-color .12s, color .12s; }
 .top-bar button:hover:not(:disabled) { background: var(--line);
   border-color: var(--muted); color: var(--bright); }
@@ -130,7 +131,7 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .token-setup a:hover { color: var(--blue-hover); text-decoration: underline; }
 .error { color: var(--red); }
 
-.settings-overlay { position: fixed; inset: 0; background: #000a;
+.settings-overlay { position: fixed; inset: 0; z-index: 100; background: #000a;
   display: flex; align-items: center; justify-content: center; }
 .settings-panel { background: var(--panel); border: 1px solid var(--border);
   border-radius: 10px; padding: 20px; width: 420px; display: flex; flex-direction: column; gap: 10px; }
