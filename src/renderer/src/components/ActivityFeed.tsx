@@ -1,6 +1,6 @@
 import { FeedEvent } from '@shared/types'
 import { api } from '../api'
-import { relativeAge } from './NeedsReviewTable'
+import { relativeAge } from './pr-cells'
 import { EventIcon } from './icons'
 import { severityForKind } from './activity-severity'
 import { EmptyState } from './EmptyState'

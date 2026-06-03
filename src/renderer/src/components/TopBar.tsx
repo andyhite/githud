@@ -5,7 +5,7 @@ import { RefreshCw, Settings, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useTheme } from './theme-provider'
-import { relativeAge } from './NeedsReviewTable'
+import { relativeAge } from './pr-cells'
 
 // Data older than ~2x the 30s poll interval is treated as stale.
 const STALE_MS = 90_000

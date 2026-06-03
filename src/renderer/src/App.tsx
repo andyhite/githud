@@ -4,8 +4,10 @@ import { FeedEvent, DashboardSnapshot, PullRequest, TriageVerdict, Settings as S
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
 import { TopBar } from './components/TopBar'
-import { NeedsReviewTable, ShowHiddenToggle } from './components/NeedsReviewTable'
-import { MyPullRequestsTable } from './components/MyPullRequestsTable'
+import { Panel } from './components/Panel'
+import { PrTable } from './components/PrTable'
+import { ShowHiddenToggle } from './components/RowActions'
+import { Button } from '@/components/ui/button'
 import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
 import { Settings } from './components/Settings'
@@ -32,7 +34,7 @@ export default function App() {
     })
   }, [])
 
-  if (!authChecked) return <div className="loading">Loading…</div>
+  if (!authChecked) return <div className="p-10 text-muted-foreground">Loading…</div>
   if (!hasToken) return <TokenSetup onSaved={(_login) => setHasToken(true)} />
 
   return <Dashboard onOpenSettings={() => setShowSettings(true)} showSettings={showSettings} onCloseSettings={() => setShowSettings(false)} />
@@ -138,7 +140,7 @@ function Dashboard({
   ]
 
   return (
-    <div className="app">
+    <div className="flex flex-col h-screen">
       <TopBar
         snapshot={snapshot ?? null}
         onRefresh={() => refetch()}
@@ -153,16 +155,18 @@ function Dashboard({
         collapsed={settings.chartsCollapsed}
         onToggleCollapsed={onToggleCharts}
       />
-      <main className="layout">
-        <section className="tables">
-          <div className="panel">
-            <h2>
-              Needs my review <span className="count">{visibleNeedsReview}</span>
-              <span className="spacer" />
-              <ShowHiddenToggle count={hiddenReviewCount} open={showHiddenReview} onToggle={() => setShowHiddenReview((v) => !v)} />
-            </h2>
-            <NeedsReviewTable
+      <main className="grid grid-cols-[2fr_1fr] gap-3 p-3 flex-1 overflow-hidden">
+        <section className="flex flex-col gap-3 min-h-0">
+          <Panel
+            title="Needs my review"
+            count={visibleNeedsReview}
+            actions={<ShowHiddenToggle count={hiddenReviewCount} open={showHiddenReview} onToggle={() => setShowHiddenReview((v) => !v)} />}
+          >
+            <PrTable
               items={reviewItems}
+              columns={aiOn ? ['diff', 'status', 'triage', 'age'] : ['diff', 'status', 'age']}
+              emptyVariant="review"
+              showAuthor
               hiddenIds={hiddenIds}
               showHidden={showHiddenReview}
               onHide={onHide}
@@ -174,35 +178,40 @@ function Dashboard({
               aiOn={aiOn}
               onReview={setReviewId}
             />
-          </div>
+          </Panel>
           {teamLabels.length > 0 && (
-            <div className="panel">
-              <h2>
-                Team PRs <span className="count">{teamVisibleCount}</span>
-                <span className="spacer" />
-                <LabelFilterChips labels={teamLabels} muted={mutedLabels} onToggle={toggleLabel} />
-                <ShowHiddenToggle count={hiddenTeamCount} open={showHiddenTeam} onToggle={() => setShowHiddenTeam((v) => !v)} />
-              </h2>
-              <MyPullRequestsTable
+            <Panel
+              title="Team PRs"
+              count={teamVisibleCount}
+              actions={
+                <>
+                  <LabelFilterChips labels={teamLabels} muted={mutedLabels} onToggle={toggleLabel} />
+                  <ShowHiddenToggle count={hiddenTeamCount} open={showHiddenTeam} onToggle={() => setShowHiddenTeam((v) => !v)} />
+                </>
+              }
+            >
+              <PrTable
                 items={visibleTeam}
+                columns={['diff', 'status', 'reviewers', 'age']}
+                emptyVariant="team"
+                showAuthor
                 hiddenIds={hiddenIds}
                 showHidden={showHiddenTeam}
-                showAuthor
-                emptyVariant="team"
                 onHide={onHide}
                 onUnhide={onUnhide}
                 loading={loading}
               />
-            </div>
+            </Panel>
           )}
-          <div className="panel">
-            <h2>
-              My open PRs <span className="count">{visibleMine}</span>
-              <span className="spacer" />
-              <ShowHiddenToggle count={hiddenMineCount} open={showHiddenMine} onToggle={() => setShowHiddenMine((v) => !v)} />
-            </h2>
-            <MyPullRequestsTable
+          <Panel
+            title="My open PRs"
+            count={visibleMine}
+            actions={<ShowHiddenToggle count={hiddenMineCount} open={showHiddenMine} onToggle={() => setShowHiddenMine((v) => !v)} />}
+          >
+            <PrTable
               items={mineItems}
+              columns={['diff', 'status', 'reviewers', 'age']}
+              emptyVariant="mine"
               hiddenIds={hiddenIds}
               showHidden={showHiddenMine}
               onHide={onHide}
@@ -210,28 +219,34 @@ function Dashboard({
               onSnooze={onSnooze}
               loading={loading}
             />
-          </div>
+          </Panel>
         </section>
-        <aside className="rail">
+        <aside className="flex flex-col gap-3 min-h-0 overflow-hidden">
           {aiOn && (
-            <div className="panel digest-panel">
-              <h2>
-                Recap
-                <span className="spacer" />
-                <span className="digest-meta">since you were away</span>
-              </h2>
+            <Panel title="Recap" actions={<span className="text-xs text-muted-foreground">since you were away</span>}>
               <DigestPane digest={digest} />
-            </div>
+            </Panel>
           )}
-          <div className="panel activity-panel">
-            <h2>
-              Activity <span className="count">{unread}</span>
-              <span className="spacer" />
-              {aiOn && <button className="link-button" onClick={() => setShowDigest(true)}>catch me up</button>}
-              {unread > 0 && <button className="link-button" onClick={onReadAll}>mark all read</button>}
-            </h2>
+          <Panel
+            title="Activity"
+            count={unread}
+            actions={
+              <>
+                {aiOn && (
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => setShowDigest(true)}>
+                    catch me up
+                  </Button>
+                )}
+                {unread > 0 && (
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs" onClick={onReadAll}>
+                    mark all read
+                  </Button>
+                )}
+              </>
+            }
+          >
             <ActivityFeed events={snapshot?.events ?? []} onRead={onRead} loading={loading} />
-          </div>
+          </Panel>
         </aside>
       </main>
       {showSettings && <Settings onClose={onCloseSettings} />}

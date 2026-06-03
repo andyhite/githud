@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { NeedsReviewTable, ShowHiddenToggle } from './NeedsReviewTable'
-import { MyPullRequestsTable } from './MyPullRequestsTable'
+import { PrTable, type PrColumn } from './PrTable'
+import { ShowHiddenToggle } from './RowActions'
 import { LabelFilterChips } from './LabelFilterChips'
 import type { PullRequest } from '@shared/types'
+
+// Column configs mirroring how App.tsx wires each panel, so the assertions below
+// exercise the same rendering the old NeedsReviewTable / MyPullRequestsTable did.
+const REVIEW_COLS: PrColumn[] = ['diff', 'status', 'age']
+const REVIEW_COLS_AI: PrColumn[] = ['diff', 'status', 'triage', 'age']
+const MINE_COLS: PrColumn[] = ['diff', 'status', 'reviewers', 'age']
 
 function pr(over: Partial<PullRequest> = {}): PullRequest {
   return {
@@ -20,25 +26,25 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
 
 beforeEach(() => { window.api = { openExternal: vi.fn(), copyToClipboard: vi.fn() } as any })
 
-describe('NeedsReviewTable', () => {
+describe('PrTable (needs-review config)', () => {
   it('renders an empty state with no rows', () => {
-    render(<NeedsReviewTable items={[]} />)
+    render(<PrTable items={[]} columns={REVIEW_COLS} emptyVariant="review" />)
     expect(screen.getByText(/inbox zero/i)).toBeInTheDocument()
   })
 
   it('shows the empty state when every item is hidden and hidden rows are collapsed', () => {
-    render(<NeedsReviewTable items={[pr({ id: 'p1' })]} hiddenIds={['p1']} showHidden={false} />)
+    render(<PrTable items={[pr({ id: 'p1' })]} columns={REVIEW_COLS} emptyVariant="review" hiddenIds={['p1']} showHidden={false} />)
     expect(screen.getByText(/inbox zero/i)).toBeInTheDocument()
   })
 
   it('shows the hidden rows (not the empty state) when hidden rows are expanded', () => {
-    render(<NeedsReviewTable items={[pr({ id: 'p1' })]} hiddenIds={['p1']} showHidden={true} />)
+    render(<PrTable items={[pr({ id: 'p1' })]} columns={REVIEW_COLS} emptyVariant="review" hiddenIds={['p1']} showHidden={true} />)
     expect(screen.queryByText(/inbox zero/i)).not.toBeInTheDocument()
     expect(screen.getByText('Fix nav focus trap')).toBeInTheDocument()
   })
 
   it('renders a row with author + checks in the meta line and opens the PR on click', async () => {
-    render(<NeedsReviewTable items={[pr()]} />)
+    render(<PrTable items={[pr()]} columns={REVIEW_COLS} emptyVariant="review" showAuthor />)
     expect(screen.getByText('Fix nav focus trap')).toBeInTheDocument()
     expect(screen.getByText(/o\/web #88/)).toBeInTheDocument()
     expect(screen.getByText('asmith')).toBeInTheDocument() // author now in the PR meta line
@@ -49,14 +55,14 @@ describe('NeedsReviewTable', () => {
 
   it('shows the AI triage chip in its own column only when AI is enabled', () => {
     const verdict = { prId: 'p1', label: 'quick_approve', rationale: 'small', focusHint: 'n/a' } as any
-    const { rerender } = render(<NeedsReviewTable items={[pr({ id: 'p1' })]} />)
+    const { rerender } = render(<PrTable items={[pr({ id: 'p1' })]} columns={REVIEW_COLS} emptyVariant="review" />)
     expect(screen.queryByText(/quick approve/i)).not.toBeInTheDocument() // no triage column without aiOn
-    rerender(<NeedsReviewTable items={[pr({ id: 'p1' })]} aiOn verdicts={{ p1: verdict }} />)
+    rerender(<PrTable items={[pr({ id: 'p1' })]} columns={REVIEW_COLS_AI} emptyVariant="review" aiOn verdicts={{ p1: verdict }} />)
     expect(screen.getByText(/quick approve/i)).toBeInTheDocument()
   })
 
   it('shows the diff stat, stacked base, and unresolved-thread count', () => {
-    render(<NeedsReviewTable items={[pr({ additions: 40, deletions: 8, changedFiles: 3, baseBranch: 'feature/parent', unresolvedThreads: 3 })]} />)
+    render(<PrTable items={[pr({ additions: 40, deletions: 8, changedFiles: 3, baseBranch: 'feature/parent', unresolvedThreads: 3 })]} columns={REVIEW_COLS} emptyVariant="review" />)
     expect(screen.getByText('+40')).toBeInTheDocument()
     expect(screen.getByText(/[−-]8/)).toBeInTheDocument()
     expect(screen.getByText(/→ feature\/parent/)).toBeInTheDocument()
@@ -64,60 +70,60 @@ describe('NeedsReviewTable', () => {
   })
 
   it('hides the base marker for PRs targeting the default branch', () => {
-    render(<NeedsReviewTable items={[pr({ baseBranch: 'main' })]} />)
+    render(<PrTable items={[pr({ baseBranch: 'main' })]} columns={REVIEW_COLS} emptyVariant="review" />)
     expect(screen.queryByText(/→/)).not.toBeInTheDocument()
   })
 
   it('shows a status tag in its own column', () => {
-    render(<NeedsReviewTable items={[pr({ reviewState: 'changes_requested' })]} />)
+    render(<PrTable items={[pr({ reviewState: 'changes_requested' })]} columns={REVIEW_COLS} emptyVariant="review" />)
     expect(screen.getByText(/changes requested/i)).toBeInTheDocument()
   })
 
   it('copies the PR link from the actions menu', async () => {
-    render(<NeedsReviewTable items={[pr({ url: 'https://gh/88', branch: 'feat/x' })]} />)
+    render(<PrTable items={[pr({ url: 'https://gh/88', branch: 'feat/x' })]} columns={REVIEW_COLS} emptyVariant="review" />)
     await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /copy pr link/i }))
     expect(window.api.copyToClipboard).toHaveBeenCalledWith('https://gh/88')
   })
 })
 
-describe('MyPullRequestsTable', () => {
+describe('PrTable (my-open-PRs config)', () => {
   it('shows failing checks (in the meta line) and changes-requested status', () => {
-    render(<MyPullRequestsTable items={[pr()]} />)
+    render(<PrTable items={[pr()]} columns={MINE_COLS} emptyVariant="mine" />)
     expect(screen.getByText(/1 failing/i)).toBeInTheDocument()
     expect(screen.getByText(/changes requested/i)).toBeInTheDocument()
   })
 
   it('lists who the PR is waiting on as reviewer chips', () => {
-    render(<MyPullRequestsTable items={[pr({ reviewers: [{ login: 'me', avatarUrl: '' }, { login: 'bob', avatarUrl: '' }] })]} />)
+    render(<PrTable items={[pr({ reviewers: [{ login: 'me', avatarUrl: '' }, { login: 'bob', avatarUrl: '' }] })]} columns={MINE_COLS} emptyVariant="mine" />)
     expect(screen.getByText('@me')).toBeInTheDocument()
     expect(screen.getByText('@bob')).toBeInTheDocument()
   })
 
   it('shows a dash when there are no reviewers', () => {
-    render(<MyPullRequestsTable items={[pr({ reviewers: [] })]} />)
+    render(<PrTable items={[pr({ reviewers: [] })]} columns={MINE_COLS} emptyVariant="mine" />)
     expect(screen.getByText('—')).toBeInTheDocument()
   })
 
   it('renders an empty state with no rows', () => {
-    render(<MyPullRequestsTable items={[]} />)
+    render(<PrTable items={[]} columns={MINE_COLS} emptyVariant="mine" />)
     expect(screen.getByText(/nothing in flight/i)).toBeInTheDocument()
   })
 
   it('shows the empty state when every item is hidden and hidden rows are collapsed', () => {
-    render(<MyPullRequestsTable items={[pr({ id: 'p1' })]} hiddenIds={['p1']} showHidden={false} />)
+    render(<PrTable items={[pr({ id: 'p1' })]} columns={MINE_COLS} emptyVariant="mine" hiddenIds={['p1']} showHidden={false} />)
     expect(screen.getByText(/nothing in flight/i)).toBeInTheDocument()
   })
 })
 
-describe('MyPullRequestsTable as team panel', () => {
-  it('shows the author when showAuthor is set and uses the team empty state', () => {
-    render(<MyPullRequestsTable items={[pr({ author: { login: 'teammate', avatarUrl: '' } })]} showAuthor />)
+describe('PrTable (team config)', () => {
+  it('shows the author when showAuthor is set', () => {
+    render(<PrTable items={[pr({ author: { login: 'teammate', avatarUrl: '' } })]} columns={MINE_COLS} emptyVariant="team" showAuthor />)
     expect(screen.getByText('teammate')).toBeInTheDocument()
   })
 
   it('renders the team empty-state copy when there are no rows', () => {
-    render(<MyPullRequestsTable items={[]} emptyVariant="team" />)
+    render(<PrTable items={[]} columns={MINE_COLS} emptyVariant="team" />)
     expect(screen.getByText(/no team prs/i)).toBeInTheDocument()
   })
 })
@@ -141,7 +147,7 @@ describe('LabelFilterChips', () => {
 describe('hide / unhide', () => {
   it('calls onHide with the PR when Hide is selected from the actions menu', async () => {
     const onHide = vi.fn()
-    render(<NeedsReviewTable items={[pr({ id: 'p1' })]} hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
+    render(<PrTable items={[pr({ id: 'p1' })]} columns={REVIEW_COLS} emptyVariant="review" hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /^hide$/i }))
     expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
@@ -150,10 +156,10 @@ describe('hide / unhide', () => {
   it('omits hidden rows by default and shows them when showHidden is set', () => {
     const visible = pr({ id: 'p1', title: 'Visible PR' })
     const hidden = pr({ id: 'p2', title: 'Hidden PR' })
-    const { rerender } = render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} onHide={vi.fn()} onUnhide={vi.fn()} />)
+    const { rerender } = render(<PrTable items={[visible, hidden]} columns={REVIEW_COLS} emptyVariant="review" hiddenIds={['p2']} onHide={vi.fn()} onUnhide={vi.fn()} />)
     expect(screen.getByText('Visible PR')).toBeInTheDocument()
     expect(screen.queryByText('Hidden PR')).not.toBeInTheDocument()
-    rerender(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} showHidden onHide={vi.fn()} onUnhide={vi.fn()} />)
+    rerender(<PrTable items={[visible, hidden]} columns={REVIEW_COLS} emptyVariant="review" hiddenIds={['p2']} showHidden onHide={vi.fn()} onUnhide={vi.fn()} />)
     expect(screen.getByText('Hidden PR')).toBeInTheDocument()
   })
 
@@ -161,16 +167,16 @@ describe('hide / unhide', () => {
     const visible = pr({ id: 'p1', title: 'Visible PR' })
     const hidden = pr({ id: 'p2', title: 'Hidden PR' })
     const onUnhide = vi.fn()
-    render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} showHidden onHide={vi.fn()} onUnhide={onUnhide} />)
+    render(<PrTable items={[visible, hidden]} columns={REVIEW_COLS} emptyVariant="review" hiddenIds={['p2']} showHidden onHide={vi.fn()} onUnhide={onUnhide} />)
     const hiddenRow = screen.getByText('Hidden PR').closest('tr')!
     await userEvent.click(within(hiddenRow).getByRole('button', { name: /row actions/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /^unhide$/i }))
     expect(onUnhide).toHaveBeenCalledWith('p2')
   })
 
-  it('works for MyPullRequestsTable too', async () => {
+  it('works for the my-open-PRs config too', async () => {
     const onHide = vi.fn()
-    render(<MyPullRequestsTable items={[pr({ id: 'm1' })]} hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
+    render(<PrTable items={[pr({ id: 'm1' })]} columns={MINE_COLS} emptyVariant="mine" hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
     await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /^hide$/i }))
     expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
