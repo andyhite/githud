@@ -197,6 +197,13 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .triage-chip.triage-blue { background: #58a6ff33; color: #79c0ff; }
 .triage-chip.triage-amber { background: #d2992238; color: #e3b341; }
 .triage-chip.triage-purple { background: #a371f733; color: #d2a8ff; }
+/* My-PR status tag — color encodes urgency at a glance. */
+.status-tag { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 9px; white-space: nowrap; }
+.status-tag.st-green { background: #3fb95033; color: #56d364; }
+.status-tag.st-red { background: #f8514933; color: #ff7b72; }
+.status-tag.st-amber { background: #d2992238; color: #e3b341; }
+.status-tag.st-blue { background: #58a6ff33; color: #79c0ff; }
+.status-tag.st-muted { background: #8b949e22; color: var(--muted); }
 .settings-panel select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px; }
 
 /* Rendered markdown (catch-me-up digest, future AI prose). */

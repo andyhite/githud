@@ -5,17 +5,22 @@ import {
 } from './NeedsReviewTable'
 import { mergeReadiness } from './pr-status'
 
+// A single glanceable status tag. Color encodes urgency: red = needs your
+// action, amber = blocked on conflicts, green = good to go, blue = waiting on
+// reviewers, grey = draft. Most-actionable state wins.
+function statusTag(pr: PullRequest): { cls: string; label: string } {
+  if (pr.isDraft) return { cls: 'st-muted', label: 'draft' }
+  if (pr.reviewState === 'changes_requested') return { cls: 'st-red', label: 'changes requested' }
+  if (pr.checks.state === 'failure') return { cls: 'st-red', label: 'CI failing' }
+  if (pr.mergeable === 'conflicting') return { cls: 'st-amber', label: 'conflicts' }
+  if (mergeReadiness(pr) === 'ready') return { cls: 'st-green', label: 'ready to merge' }
+  if (pr.reviewState === 'approved') return { cls: 'st-green', label: `${pr.approvals} approval${pr.approvals === 1 ? '' : 's'}` }
+  return { cls: 'st-blue', label: 'review required' }
+}
+
 function StatusCell({ pr }: { pr: PullRequest }) {
-  if (mergeReadiness(pr) === 'ready') {
-    return <span className="good">✓ ready to merge</span>
-  }
-  if (pr.reviewState === 'changes_requested') return <span className="warn">⟳ changes requested</span>
-  if (pr.reviewState === 'approved') {
-    const mergeNote = pr.mergeable === 'conflicting' ? ' · conflicts' : ''
-    return <span className="good">✓ {pr.approvals} approval{pr.approvals === 1 ? '' : 's'}{mergeNote}</span>
-  }
-  if (pr.isDraft) return <span className="muted">draft</span>
-  return <span className="muted">review required</span>
+  const { cls, label } = statusTag(pr)
+  return <span className={`status-tag ${cls}`}>{label}</span>
 }
 
 export function MyPullRequestsTable({
