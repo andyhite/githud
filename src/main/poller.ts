@@ -32,8 +32,16 @@ export class Poller {
         mine: MY_PRS_QUERY
       })
     } catch (err: any) {
-      if (err?.name === 'GraphqlResponseError' && err.data) data = err.data
-      else throw err
+      // Salvage a partial GraphQL response whenever usable data came back,
+      // regardless of the error class name (Octokit's varies by version).
+      // Only a genuinely empty failure (auth/network/rate-limit) rethrows.
+      const partial = err?.data
+      if (partial && (partial.needsReview || partial.mine || partial.viewer)) {
+        console.warn('[poll] salvaging partial GraphQL response:', err?.message)
+        data = partial
+      } else {
+        throw err
+      }
     }
 
     const mineNodes: any[] = (data.mine?.nodes ?? []).filter(Boolean)

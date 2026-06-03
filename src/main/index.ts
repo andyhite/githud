@@ -87,8 +87,13 @@ function createWindow(): void {
 }
 
 function applyLoginItem(settings: Settings): void {
-  if (process.platform === 'darwin' || process.platform === 'win32') {
+  if (process.platform !== 'darwin' && process.platform !== 'win32') return
+  try {
     app.setLoginItemSettings({ openAtLogin: settings.launchAtLogin })
+  } catch (err) {
+    // Unsigned / dev builds on recent macOS can't register a login item
+    // ("Operation not permitted"). Non-fatal — it works in a signed build.
+    console.warn('[login-item] could not update launch-at-login (expected on unsigned/dev builds):', err)
   }
 }
 
@@ -152,6 +157,9 @@ async function doPoll(): Promise<DashboardSnapshot> {
     sendSnapshot(snapshot)
     return snapshot
   } catch (err: any) {
+    // Surface the underlying failure in the logs — the renderer only shows a
+    // generic "offline — retrying" badge, so this is the only place to see why.
+    console.error('[poll] refresh failed:', err?.status ?? '', err?.message ?? err, err?.errors ?? '')
     // Keep last good data; surface the error on a degraded snapshot.
     const degraded: DashboardSnapshot = lastSnapshot
       ? { ...lastSnapshot, error: err?.message ?? 'Refresh failed' }
