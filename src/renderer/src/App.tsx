@@ -44,7 +44,7 @@ function Dashboard({
     qc.setQueryData<DashboardSnapshot | null>(['dashboard'], (old) => (old ? { ...old, events } : old))
   const onRead = (id: string) => { void api.markRead(id).then(applyEvents) }
   const onReadAll = () => { void api.markAllRead().then(applyEvents) }
-  const unread = snapshot?.events.filter((e) => e.unread).length ?? 0
+  const unread = snapshot?.events?.filter((e) => e.unread).length ?? 0
 
   return (
     <div className="app">
