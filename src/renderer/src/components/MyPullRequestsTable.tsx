@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { PullRequest } from '@shared/types'
 import {
   ChecksCell, AgeCell, PrTitleCell, ReviewersCell,
-  HideCell, ShowHiddenToggle, HideProps
+  HideCell, ShowHiddenToggle, CopyCell, HideProps
 } from './NeedsReviewTable'
 import { mergeReadiness } from './pr-status'
 
@@ -42,7 +42,7 @@ export function MyPullRequestsTable({
       <td><ReviewersCell pr={pr} /></td>
       <td><ChecksCell pr={pr} /></td>
       <td><AgeCell pr={pr} /></td>
-      <td className="actions"><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
+      <td className="actions"><CopyCell pr={pr} /><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
     </tr>
   )
 

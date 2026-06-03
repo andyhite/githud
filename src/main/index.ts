@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification, shell } from 'electron'
+import { app, BrowserWindow, clipboard, ipcMain, Notification, shell } from 'electron'
 import { join } from 'path'
 import { DashboardSnapshot, Settings, AuthStatus } from '@shared/types'
 import { hasToken, loadToken, saveToken, clearToken } from './token-store'
@@ -225,7 +225,7 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('snoozePr', () => { throw new Error('not implemented') })
-  ipcMain.handle('copyToClipboard', () => { throw new Error('not implemented') })
+  ipcMain.handle('copyToClipboard', (_e, text: string) => { clipboard.writeText(String(text)) })
   ipcMain.handle('getAiStatus', () => ({ hasKey: false }))
   ipcMain.handle('saveAiKey', () => { throw new Error('not implemented') })
   ipcMain.handle('getTriage', () => null)

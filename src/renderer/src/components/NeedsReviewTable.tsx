@@ -79,6 +79,15 @@ export function ReviewersCell({ pr }: { pr: PullRequest }) {
   )
 }
 
+export function CopyCell({ pr }: { pr: PullRequest }) {
+  return (
+    <span className="copy-actions">
+      <button className="row-action" title="Copy PR link" onClick={() => api.copyToClipboard(pr.url)}>link</button>
+      <button className="row-action" title="Copy branch name" onClick={() => api.copyToClipboard(pr.branch)}>branch</button>
+    </span>
+  )
+}
+
 export function PrTitleCell({ pr }: { pr: PullRequest }) {
   return (
     <button className="pr-link" onClick={() => api.openExternal(pr.url)}>
@@ -111,7 +120,7 @@ export function NeedsReviewTable({
       <td><ReviewersCell pr={pr} /></td>
       <td><ChecksCell pr={pr} /></td>
       <td><AgeCell pr={pr} /></td>
-      <td className="actions"><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
+      <td className="actions"><CopyCell pr={pr} /><HideCell pr={pr} hidden={isHidden} onHide={onHide} onUnhide={onUnhide} /></td>
     </tr>
   )
 

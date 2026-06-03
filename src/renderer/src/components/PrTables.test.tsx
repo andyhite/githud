@@ -16,7 +16,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
   }
 }
 
-beforeEach(() => { window.api = { openExternal: vi.fn() } as any })
+beforeEach(() => { window.api = { openExternal: vi.fn(), copyToClipboard: vi.fn() } as any })
 
 describe('NeedsReviewTable', () => {
   it('renders an empty state with no rows', () => {
@@ -41,6 +41,12 @@ describe('NeedsReviewTable', () => {
   it('shows a dash when there are no reviewers', () => {
     render(<NeedsReviewTable items={[pr({ reviewers: [] })]} />)
     expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  it('copies the PR link', async () => {
+    render(<NeedsReviewTable items={[pr({ url: 'https://gh/88', branch: 'feat/x' })]} />)
+    await userEvent.click(screen.getByTitle('Copy PR link'))
+    expect(window.api.copyToClipboard).toHaveBeenCalledWith('https://gh/88')
   })
 })
 
