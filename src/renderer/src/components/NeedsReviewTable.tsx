@@ -167,6 +167,7 @@ export function TriageChip({ verdict }: { verdict?: TriageVerdict }) {
 export function NeedsReviewTable({
   items,
   hiddenIds = [],
+  showHidden = false,
   onHide,
   onUnhide,
   onSnooze,
@@ -175,8 +176,7 @@ export function NeedsReviewTable({
   verdicts,
   aiOn,
   onReview
-}: { items: PullRequest[]; loading?: boolean; selectedId?: string; verdicts?: Record<string, TriageVerdict>; aiOn?: boolean; onReview?: (id: string) => void } & HideProps) {
-  const [showHidden, setShowHidden] = useState(false)
+}: { items: PullRequest[]; loading?: boolean; showHidden?: boolean; selectedId?: string; verdicts?: Record<string, TriageVerdict>; aiOn?: boolean; onReview?: (id: string) => void } & HideProps) {
   const hiddenSet = new Set(hiddenIds)
   const visible = items.filter((pr) => !hiddenSet.has(pr.id))
   const hidden = items.filter((pr) => hiddenSet.has(pr.id))
@@ -195,22 +195,19 @@ export function NeedsReviewTable({
   )
 
   return (
-    <>
-      <table className="pr-table">
-        <thead>
-          <tr>
-            <th>PR</th>
-            {aiOn && <th className="col-triage">Triage</th>}
-            <th className="col-age">Age</th>
-            <th aria-hidden="true"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((pr) => row(pr, false))}
-          {showHidden && hidden.map((pr) => row(pr, true))}
-        </tbody>
-      </table>
-      <ShowHiddenToggle count={hidden.length} open={showHidden} onToggle={() => setShowHidden((v) => !v)} />
-    </>
+    <table className="pr-table">
+      <thead>
+        <tr>
+          <th>PR</th>
+          {aiOn && <th className="col-triage">Triage</th>}
+          <th className="col-age">Age</th>
+          <th aria-hidden="true"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {visible.map((pr) => row(pr, false))}
+        {showHidden && hidden.map((pr) => row(pr, true))}
+      </tbody>
+    </table>
   )
 }

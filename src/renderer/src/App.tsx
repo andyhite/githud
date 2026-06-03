@@ -4,7 +4,7 @@ import { FeedEvent, DashboardSnapshot, PullRequest, TriageVerdict } from '@share
 import { api } from './api'
 import { useDashboard } from './hooks/useDashboard'
 import { TopBar } from './components/TopBar'
-import { NeedsReviewTable } from './components/NeedsReviewTable'
+import { NeedsReviewTable, ShowHiddenToggle } from './components/NeedsReviewTable'
 import { MyPullRequestsTable } from './components/MyPullRequestsTable'
 import { ActivityFeed } from './components/ActivityFeed'
 import { TokenSetup } from './components/TokenSetup'
@@ -75,8 +75,13 @@ function Dashboard({
 
   const [selected, setSelected] = useState(-1)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [showHiddenReview, setShowHiddenReview] = useState(false)
+  const [showHiddenMine, setShowHiddenMine] = useState(false)
   const reviewItems = sortNeedsReview((snapshot?.needsReview ?? []).filter((p) => matchesPr(p, query)), verdicts)
   const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
+  const mineItems = sortMyPrs((snapshot?.myPullRequests ?? []).filter((p) => matchesPr(p, query)))
+  const hiddenReviewCount = reviewItems.length - visibleReview.length
+  const hiddenMineCount = mineItems.filter((p) => hiddenSet.has(p.id)).length
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -121,10 +126,15 @@ function Dashboard({
       <main className="layout">
         <section className="tables">
           <div className="panel">
-            <h2>Needs my review <span className="count">{visibleNeedsReview}</span></h2>
+            <h2>
+              Needs my review <span className="count">{visibleNeedsReview}</span>
+              <span className="spacer" />
+              <ShowHiddenToggle count={hiddenReviewCount} open={showHiddenReview} onToggle={() => setShowHiddenReview((v) => !v)} />
+            </h2>
             <NeedsReviewTable
               items={reviewItems}
               hiddenIds={hiddenIds}
+              showHidden={showHiddenReview}
               onHide={onHide}
               onUnhide={onUnhide}
               onSnooze={onSnooze}
@@ -136,10 +146,15 @@ function Dashboard({
             />
           </div>
           <div className="panel">
-            <h2>My open PRs <span className="count">{visibleMine}</span></h2>
+            <h2>
+              My open PRs <span className="count">{visibleMine}</span>
+              <span className="spacer" />
+              <ShowHiddenToggle count={hiddenMineCount} open={showHiddenMine} onToggle={() => setShowHiddenMine((v) => !v)} />
+            </h2>
             <MyPullRequestsTable
-              items={sortMyPrs((snapshot?.myPullRequests ?? []).filter((p) => matchesPr(p, query)))}
+              items={mineItems}
               hiddenIds={hiddenIds}
+              showHidden={showHiddenMine}
               onHide={onHide}
               onUnhide={onUnhide}
               onSnooze={onSnooze}

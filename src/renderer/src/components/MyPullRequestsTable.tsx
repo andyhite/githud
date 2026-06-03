@@ -1,8 +1,7 @@
-import { useState } from 'react'
 import { PullRequest } from '@shared/types'
 import {
   AgeCell, PrTitleCell, ReviewersCell,
-  RowActions, ShowHiddenToggle, HideProps
+  RowActions, HideProps
 } from './NeedsReviewTable'
 import { mergeReadiness } from './pr-status'
 
@@ -22,12 +21,12 @@ function StatusCell({ pr }: { pr: PullRequest }) {
 export function MyPullRequestsTable({
   items,
   hiddenIds = [],
+  showHidden = false,
   onHide,
   onUnhide,
   onSnooze,
   loading
-}: { items: PullRequest[]; loading?: boolean } & HideProps) {
-  const [showHidden, setShowHidden] = useState(false)
+}: { items: PullRequest[]; loading?: boolean; showHidden?: boolean } & HideProps) {
   const hiddenSet = new Set(hiddenIds)
   const visible = items.filter((pr) => !hiddenSet.has(pr.id))
   const hidden = items.filter((pr) => hiddenSet.has(pr.id))
@@ -47,23 +46,20 @@ export function MyPullRequestsTable({
   )
 
   return (
-    <>
-      <table className="pr-table">
-        <thead>
-          <tr>
-            <th>PR</th>
-            <th className="col-status">Status</th>
-            <th>Waiting on</th>
-            <th className="col-age">Age</th>
-            <th aria-hidden="true"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((pr) => row(pr, false))}
-          {showHidden && hidden.map((pr) => row(pr, true))}
-        </tbody>
-      </table>
-      <ShowHiddenToggle count={hidden.length} open={showHidden} onToggle={() => setShowHidden((v) => !v)} />
-    </>
+    <table className="pr-table">
+      <thead>
+        <tr>
+          <th>PR</th>
+          <th className="col-status">Status</th>
+          <th>Waiting on</th>
+          <th className="col-age">Age</th>
+          <th aria-hidden="true"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {visible.map((pr) => row(pr, false))}
+        {showHidden && hidden.map((pr) => row(pr, true))}
+      </tbody>
+    </table>
   )
 }

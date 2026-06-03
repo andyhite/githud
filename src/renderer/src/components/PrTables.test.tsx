@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { NeedsReviewTable } from './NeedsReviewTable'
+import { NeedsReviewTable, ShowHiddenToggle } from './NeedsReviewTable'
 import { MyPullRequestsTable } from './MyPullRequestsTable'
 import type { PullRequest } from '@shared/types'
 
@@ -83,21 +83,21 @@ describe('hide / unhide', () => {
     expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
   })
 
-  it('omits hidden rows from the table and counts them in the toggle', () => {
+  it('omits hidden rows by default and shows them when showHidden is set', () => {
     const visible = pr({ id: 'p1', title: 'Visible PR' })
     const hidden = pr({ id: 'p2', title: 'Hidden PR' })
-    render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} onHide={vi.fn()} onUnhide={vi.fn()} />)
+    const { rerender } = render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} onHide={vi.fn()} onUnhide={vi.fn()} />)
     expect(screen.getByText('Visible PR')).toBeInTheDocument()
     expect(screen.queryByText('Hidden PR')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /show hidden \(1\)/i })).toBeInTheDocument()
+    rerender(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} showHidden onHide={vi.fn()} onUnhide={vi.fn()} />)
+    expect(screen.getByText('Hidden PR')).toBeInTheDocument()
   })
 
-  it('reveals hidden rows and unhides via the actions menu', async () => {
+  it('unhides a revealed row via the actions menu', async () => {
     const visible = pr({ id: 'p1', title: 'Visible PR' })
     const hidden = pr({ id: 'p2', title: 'Hidden PR' })
     const onUnhide = vi.fn()
-    render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} onHide={vi.fn()} onUnhide={onUnhide} />)
-    await userEvent.click(screen.getByRole('button', { name: /show hidden \(1\)/i }))
+    render(<NeedsReviewTable items={[visible, hidden]} hiddenIds={['p2']} showHidden onHide={vi.fn()} onUnhide={onUnhide} />)
     const hiddenRow = screen.getByText('Hidden PR').closest('tr')!
     await userEvent.click(within(hiddenRow).getByRole('button', { name: /row actions/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /^unhide$/i }))
@@ -110,5 +110,21 @@ describe('hide / unhide', () => {
     await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /^hide$/i }))
     expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'm1' }))
+  })
+})
+
+describe('ShowHiddenToggle', () => {
+  it('renders nothing when there are no hidden rows', () => {
+    const { container } = render(<ShowHiddenToggle count={0} open={false} onToggle={vi.fn()} />)
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows the count and toggles', async () => {
+    const onToggle = vi.fn()
+    const { rerender } = render(<ShowHiddenToggle count={3} open={false} onToggle={onToggle} />)
+    await userEvent.click(screen.getByRole('button', { name: /show hidden \(3\)/i }))
+    expect(onToggle).toHaveBeenCalled()
+    rerender(<ShowHiddenToggle count={3} open onToggle={onToggle} />)
+    expect(screen.getByRole('button', { name: /hide hidden/i })).toBeInTheDocument()
   })
 })
