@@ -7,6 +7,7 @@ import { deriveEvents } from './github/derive-events'
 import { subjectStateLabel } from './github/enrich-state'
 import { filterEvents } from './github/filter-events'
 import { appendEvents, loadPrState, savePrState } from './event-store'
+import { loadHidden, saveHidden, resolveHidden } from './hidden-store'
 
 export class Poller {
   constructor(private octokit: Octokit) {}
@@ -60,12 +61,19 @@ export class Poller {
       hideBots: settings.hideBots
     })
 
+    const { hiddenIds, kept } = resolveHidden(
+      [...needsReview, ...myPullRequests].map((p) => ({ id: p.id, updatedAt: p.updatedAt })),
+      loadHidden()
+    )
+    saveHidden(kept)
+
     return {
       fetchedAt: nowIso,
       viewer,
       needsReview,
       myPullRequests,
       events,
+      hiddenPrIds: hiddenIds,
       rateLimit: { remaining: data.rateLimit?.remaining ?? 0, resetAt: data.rateLimit?.resetAt ?? '' }
     }
   }
