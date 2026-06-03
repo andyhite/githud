@@ -147,3 +147,10 @@ body { margin: 0; background: var(--bg); color: var(--text);
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 .settings-actions button:first-child { background: transparent; border: 1px solid var(--border); color: var(--text); }
 .settings-actions button:first-child:hover { background: var(--line); border-color: var(--muted); color: var(--bright); }
+.settings-panel fieldset.settings-group { border: none; padding: 0; margin: 4px 0 8px; }
+.settings-panel fieldset.settings-group:disabled { opacity: .5; }
+.settings-panel fieldset.settings-group legend { font-size: 12px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px; padding: 0; }
+.quiet-hours { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; color: var(--muted); }
+.quiet-hours input[type=time] { background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; padding: 4px 6px; }

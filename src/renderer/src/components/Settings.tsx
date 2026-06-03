@@ -13,6 +13,7 @@ const NOTIFY_OPTIONS: { kind: FeedEventKind; label: string }[] = [
   { kind: 'ci_regressed', label: 'CI regressed (was green)' },
   { kind: 'comment', label: 'Comments' },
   { kind: 'merged', label: 'Merged' }
+  // review_commented, ci_succeeded, closed intentionally omitted (low-signal)
 ]
 
 export function Settings({ onClose }: { onClose: () => void }) {

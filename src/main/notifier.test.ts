@@ -64,7 +64,7 @@ describe('diffSnapshots kind filtering + quiet hours', () => {
   })
   it('fires nothing during quiet hours', () => {
     const next = snap([ev('a', { kind: 'approved' })])
-    const specs = diffSnapshots(snap([]), next, { ...OPTS, quietHours: { start: '00:00', end: '23:59' } })
+    const specs = diffSnapshots(snap([]), next, { ...OPTS, quietHours: { start: '09:00', end: '17:00' } })
     expect(specs).toEqual([])
   })
 })
