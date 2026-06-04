@@ -90,7 +90,7 @@ export function PrTable({
           {cellFor(c, pr)}
         </TableCell>
       ))}
-      <TableCell className="w-10 text-right">
+      <TableCell className="w-14 text-right">
         <RowActions
           pr={pr}
           isHidden={isHidden}
@@ -114,7 +114,7 @@ export function PrTable({
               {headFor[c]}
             </TableHead>
           ))}
-          <TableHead aria-hidden="true" className="w-10" />
+          <TableHead aria-hidden="true" className="w-14" />
         </TableRow>
       </TableHeader>
       <TableBody>

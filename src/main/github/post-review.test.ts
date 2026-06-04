@@ -1,27 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { buildReviewRequest, buildFileCommentRequests, classifyPostError } from './post-review'
+import { buildReviewRequest, reviewUrl, classifyPostError } from './post-review'
 
 describe('buildReviewRequest', () => {
-  it('shapes a create-review request and keeps valid inline comments', () => {
+  it('shapes a create-review request with only the inline comments — no body, no event', () => {
     const req = buildReviewRequest('me', 'repo', 7, {
-      body: 'Overall nothing blocking.',
-      event: 'COMMENT',
       comments: [{ path: 'a.ts', line: 4, side: 'RIGHT', body: 'Is there a reason we...?' }]
     })
     expect(req).toEqual({
       owner: 'me',
       repo: 'repo',
       pull_number: 7,
-      body: 'Overall nothing blocking.',
-      event: 'COMMENT',
       comments: [{ path: 'a.ts', line: 4, side: 'RIGHT', body: 'Is there a reason we...?' }]
     })
   })
 
+  it('never sets an event (PENDING/draft) or a body (assessment stays in the dashboard)', () => {
+    const req = buildReviewRequest('me', 'repo', 7, {
+      comments: [{ path: 'a.ts', line: 4, side: 'RIGHT', body: 'x' }]
+    })
+    expect('event' in req).toBe(false)
+    expect('body' in req).toBe(false)
+  })
+
   it('drops comments missing a numeric line', () => {
     const req = buildReviewRequest('me', 'repo', 7, {
-      body: 's',
-      event: 'COMMENT',
       comments: [
         { path: 'a.ts', line: 4, side: 'RIGHT', body: 'keep' },
         { path: 'b.ts', line: NaN as unknown as number, side: 'RIGHT', body: 'drop' }
@@ -32,25 +34,21 @@ describe('buildReviewRequest', () => {
   })
 
   it('omits the comments key entirely when there are none', () => {
-    const req = buildReviewRequest('me', 'repo', 7, { body: 's', event: 'APPROVE', comments: [] })
+    const req = buildReviewRequest('me', 'repo', 7, { comments: [] })
     expect('comments' in req).toBe(false)
   })
 })
 
-describe('buildFileCommentRequests', () => {
-  it('shapes one file-level comment request per finding with subject_type file', () => {
-    const reqs = buildFileCommentRequests('me', 'repo', 7, 'abc123', [
-      { path: 'a.ts', body: 'whole-file note' },
-      { path: 'b.ts', body: 'another' }
-    ])
-    expect(reqs).toEqual([
-      { owner: 'me', repo: 'repo', pull_number: 7, commit_id: 'abc123', path: 'a.ts', subject_type: 'file', body: 'whole-file note' },
-      { owner: 'me', repo: 'repo', pull_number: 7, commit_id: 'abc123', path: 'b.ts', subject_type: 'file', body: 'another' }
-    ])
+describe('reviewUrl', () => {
+  it('prefers the review html_url when present', () => {
+    expect(reviewUrl('https://github.com/me/repo/pull/7#pullrequestreview-1', 'me', 'repo', 7)).toBe(
+      'https://github.com/me/repo/pull/7#pullrequestreview-1'
+    )
   })
 
-  it('returns an empty array when there are no file comments', () => {
-    expect(buildFileCommentRequests('me', 'repo', 7, 'abc123', [])).toEqual([])
+  it('falls back to the PR files tab when html_url is empty (pending reviews)', () => {
+    expect(reviewUrl('', 'me', 'repo', 7)).toBe('https://github.com/me/repo/pull/7/files')
+    expect(reviewUrl(undefined, 'me', 'repo', 7)).toBe('https://github.com/me/repo/pull/7/files')
   })
 })
 

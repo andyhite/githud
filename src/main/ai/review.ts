@@ -1,17 +1,28 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { ReviewResult, ReviewFinding } from '@shared/types'
+import { ReviewResult, ReviewFinding, ReviewRecommendation } from '@shared/types'
 import { PrDiff } from '../github/fetch-diff'
 import { AI_MODEL } from './client'
 
-const TASK = `You are reviewing a pull request diff. Produce a PR-level review summary and a list of inline findings, each anchored to a file and a line in the diff. Adopt the reviewing voice, focus, and severity calibration described in the instructions above.
+const TASK = `You are reviewing a pull request diff to help the REVIEWER (the person reading this, not the PR author) decide whether to approve it. Produce three things:
 
-For every finding, set "file" to the path copied VERBATIM from the diff's "+++ b/<path>" header for that hunk — character for character, including every directory segment. Do NOT abbreviate, normalize, infer, or reconstruct the path from memory; if you cannot find the file's "+++ b/" header in the diff, do not invent a path. Respond ONLY with the requested JSON.`
+1. "recommendation": your ballpark verdict — one of "approve" (clean, ship it), "approve_with_nits" (fine to approve after a quick skim; only minor nits), "request_changes" (something blocking needs fixing first), or "needs_discussion" (unclear scope/design; needs a conversation before deciding).
+
+2. "assessment": 2-4 sentences of PRIVATE notes written FOR THE REVIEWER (second person is natural, e.g. "safe to approve after a skim"). Summarize the risk, test coverage, and what to actually look at. These are shown only in the reviewer's dashboard and are NEVER posted to GitHub — write them for yourself, not the author.
+
+3. "findings": inline findings, each anchored to a file and a line in the diff. These ARE posted as line-level comments, so adopt the reviewing voice, focus, and severity calibration described in the instructions above. For every finding, set "file" to the path copied VERBATIM from the diff's "+++ b/<path>" header for that hunk — character for character, including every directory segment. Do NOT abbreviate, normalize, infer, or reconstruct the path from memory; if you cannot find the file's "+++ b/" header in the diff, do not invent a path.
+
+Respond ONLY with the requested JSON.`
 
 const SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    summary: { type: 'string', description: "PR-level review summary in the reviewer's voice" },
+    recommendation: {
+      type: 'string',
+      enum: ['approve', 'approve_with_nits', 'request_changes', 'needs_discussion'],
+      description: 'ballpark approve/not-approve verdict for the reviewer'
+    },
+    assessment: { type: 'string', description: 'private reviewer-facing notes; shown only in the dashboard, never posted' },
     findings: {
       type: 'array',
       items: {
@@ -28,7 +39,7 @@ const SCHEMA = {
       }
     }
   },
-  required: ['summary', 'findings']
+  required: ['recommendation', 'assessment', 'findings']
 } as const
 
 // `instructions` is the editable review-voice system prompt (Settings -> Review).
@@ -53,6 +64,17 @@ export async function reviewPr(
     messages: [{ role: 'user', content: `PR: ${title}\n\nDiff${diff.truncated ? ' (truncated)' : ''}:\n${diff.patch}` }]
   } as any)
   const textBlock = res.content.find((b: any) => b.type === 'text')
-  const parsed = JSON.parse(textBlock?.text ?? '{}') as { summary: string; findings: ReviewFinding[] }
-  return { prId, headOid, summary: parsed.summary ?? '', findings: parsed.findings ?? [], generatedAt: now }
+  const parsed = JSON.parse(textBlock?.text ?? '{}') as {
+    recommendation?: ReviewRecommendation
+    assessment?: string
+    findings?: ReviewFinding[]
+  }
+  return {
+    prId,
+    headOid,
+    recommendation: parsed.recommendation ?? 'needs_discussion',
+    assessment: parsed.assessment ?? '',
+    findings: parsed.findings ?? [],
+    generatedAt: now
+  }
 }

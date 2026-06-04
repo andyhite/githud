@@ -2,7 +2,9 @@ import { RateLimit } from './types'
 
 // Default cadence when the GraphQL budget is healthy. The user can raise this
 // (Settings.refreshIntervalSeconds); the main loop passes it in as `baseMs`.
-export const BASE_POLL_MS = 60_000
+// We start tight (30s) and let nextPollDelay extend it adaptively as the budget
+// runs low, rather than padding the floor.
+export const BASE_POLL_MS = 30_000
 
 // Default fraction of the hourly GraphQL budget to keep in reserve (the user can
 // change this via Settings.apiBudgetPercent → 1 - percent/100). The budget is

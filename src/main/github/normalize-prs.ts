@@ -123,7 +123,8 @@ export function normalizePullRequests(nodes: any[], opts: NormalizeOpts): PullRe
       labels: (n.labels?.nodes ?? []).map((l: any) => l?.name).filter(Boolean),
       updatedAt: n.updatedAt,
       isStale: opts.now - updatedAtMs > opts.staleThresholdMs,
-      isDraft: !!n.isDraft
+      isDraft: !!n.isDraft,
+      isQueued: !!n.isInMergeQueue
     }
   })
 }

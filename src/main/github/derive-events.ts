@@ -55,7 +55,10 @@ export function deriveEvents(
     }
 
     // CI transition: distinguish a regression (was green) from a first failure.
-    if (pr.ciState !== before.ciState && (pr.ciState === 'failure' || pr.ciState === 'success')) {
+    // Only for your OWN PRs — CI status is the author's concern. PRs you're only
+    // reviewing (e.g. a dependabot PR auto-requested via CODEOWNERS) land here as
+    // `source: 'review'`, and their check flips are noise, not actionable for you.
+    if (pr.source === 'mine' && pr.ciState !== before.ciState && (pr.ciState === 'failure' || pr.ciState === 'success')) {
       const regressed = pr.ciState === 'failure' && before.ciState === 'success'
       const kind: FeedEventKind = pr.ciState === 'failure' ? (regressed ? 'ci_regressed' : 'ci_failed') : 'ci_succeeded'
       events.push({ ...base, id: `ci:${pr.id}:${pr.headOid}:${pr.ciState}`, kind, url: pr.url, createdAt: now, unread: true })

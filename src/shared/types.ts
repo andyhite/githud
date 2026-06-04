@@ -32,6 +32,7 @@ export interface PullRequest {
   updatedAt: string
   isStale: boolean
   isDraft: boolean
+  isQueued: boolean // in the repo's merge queue (GraphQL isInMergeQueue)
 }
 
 export type FeedEventKind =
@@ -128,7 +129,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quietHours: null,
   launchAtLogin: false,
   chartsCollapsed: false,
-  refreshIntervalSeconds: 60,
+  refreshIntervalSeconds: 30,
   apiBudgetPercent: 80,
   teamLabels: ['frontend'],
   teamOrgs: []
@@ -187,11 +188,19 @@ export interface ReviewFinding {
   fileInDiff?: boolean // the file appears in the (capped) diff — eligible for a file-level comment even when not line-anchored
 }
 
+// A ballpark approve/not-approve read for the reviewer — shown in the dashboard,
+// NEVER posted to GitHub.
+export type ReviewRecommendation = 'approve' | 'approve_with_nits' | 'request_changes' | 'needs_discussion'
+
 export interface ReviewResult {
   prId: string
   headOid: string
   findings: ReviewFinding[]
-  summary: string
+  // `recommendation` + `assessment` are reviewer-facing notes shown ONLY in the
+  // dashboard — the posted draft review carries the line-level findings and
+  // nothing else (no summary body).
+  recommendation: ReviewRecommendation
+  assessment: string
   generatedAt: string
   patch?: string // the (capped) unified diff, so the renderer can show context around findings
 }
@@ -203,22 +212,15 @@ export interface PostReviewComment {
   body: string
 }
 
-// A whole-file comment (no line) for findings that couldn't anchor to a diff line
-// but whose file is in the diff. Posted separately from the review (see post-review).
-export interface PostReviewFileComment {
-  path: string
-  body: string
-}
-
+// Only the inline line comments are posted. The review is created PENDING (no
+// `event`) and with NO body — the AI assessment is dashboard-only and never
+// posted, and un-anchored findings are surfaced in the dashboard but not sent.
 export interface PostReviewPayload {
-  body: string
-  event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES'
   comments: PostReviewComment[]
-  fileComments?: PostReviewFileComment[]
 }
 
 export type PostReviewResult =
-  | { ok: true; url: string; warning?: string }
+  | { ok: true; url: string }
   | { ok: false; kind: 'forbidden' | 'auth' | 'network' | 'unprocessable' | 'unknown'; message: string }
 
 export interface AiStatus {

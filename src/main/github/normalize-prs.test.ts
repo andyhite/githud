@@ -38,6 +38,11 @@ describe('normalizePullRequests', () => {
     })
   })
 
+  it('maps isInMergeQueue → isQueued (default false when absent)', () => {
+    expect(normalizePullRequests([prNode()], { now, staleThresholdMs: staleMs })[0].isQueued).toBe(false)
+    expect(normalizePullRequests([prNode({ isInMergeQueue: true })], { now, staleThresholdMs: staleMs })[0].isQueued).toBe(true)
+  })
+
   it('extracts requested reviewers', () => {
     const [pr] = normalizePullRequests([prNode()], { now, staleThresholdMs: staleMs })
     expect(pr.reviewers).toEqual([{ login: 'me', avatarUrl: 'av-me' }])

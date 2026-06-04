@@ -285,7 +285,7 @@ function runPoll(): Promise<DashboardSnapshot> {
 // gate so both reason about the same budget the same way.
 function pollCadence(): { baseMs: number; reserveFraction: number } {
   const s = loadSettings()
-  const baseMs = Math.max(30, s.refreshIntervalSeconds || 60) * 1000
+  const baseMs = Math.max(30, s.refreshIntervalSeconds || 30) * 1000
   const reserveFraction = 1 - Math.min(Math.max(s.apiBudgetPercent ?? 80, 10), 100) / 100
   return { baseMs, reserveFraction }
 }

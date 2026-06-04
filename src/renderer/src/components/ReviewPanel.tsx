@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ReviewResult, PostReviewPayload, PostReviewResult } from '@shared/types'
+import { useEffect, useState } from 'react'
+import { ReviewResult, ReviewRecommendation, PostReviewPayload, PostReviewResult } from '@shared/types'
 import { api } from '../api'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Chip } from './Chip'
 import { DiffSnippet } from './DiffSnippet'
-
-type Event = PostReviewPayload['event']
+import { ExternalLink } from 'lucide-react'
 
 const SEVERITY_BORDER: Record<string, string> = {
   blocker: 'border-l-sev-failure',
@@ -21,6 +19,14 @@ const SEVERITY_TONE: Record<string, 'failure' | 'mention' | 'info'> = {
   blocker: 'failure',
   concern: 'mention',
   note: 'info'
+}
+
+// The dashboard-only verdict chip (never posted) — a ballpark approve/not read.
+const RECO_META: Record<ReviewRecommendation, { label: string; tone: 'success' | 'failure' | 'mention' }> = {
+  approve: { label: 'Approve', tone: 'success' },
+  approve_with_nits: { label: 'Approve w/ nits', tone: 'success' },
+  request_changes: { label: 'Request changes', tone: 'failure' },
+  needs_discussion: { label: 'Needs discussion', tone: 'mention' }
 }
 
 interface DraftFinding {
@@ -35,18 +41,22 @@ interface DraftFinding {
   fileInDiff?: boolean
 }
 
-export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => void }) {
+export function ReviewPanel({ prId, prUrl, prTitle, onClose }: { prId: string; prUrl?: string; prTitle?: string; onClose: () => void }) {
   const [result, setResult] = useState<ReviewResult | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [summary, setSummary] = useState('')
   const [findings, setFindings] = useState<DraftFinding[]>([])
-  const [event, setEvent] = useState<Event>('COMMENT')
   const [posting, setPosting] = useState(false)
   const [postError, setPostError] = useState<string | null>(null)
+  // Holding Option/Alt turns "Start review" into "Start review & open PR". We
+  // track it so the label reflects the modifier; the click handler reads the
+  // event's own modifier too, so a quick Alt-click works even without a keydown.
+  const [openAfter, setOpenAfter] = useState(false)
+
+  // The PR's Files-changed tab — where you finish & submit the pending review.
+  const filesUrl = prUrl ? `${prUrl}/files` : undefined
 
   function hydrate(r: ReviewResult) {
     setResult(r)
-    setSummary(r.summary)
     setFindings(
       r.findings.map((f) => ({
         // Default-check only the findings worth acting on; leave low-priority
@@ -62,7 +72,6 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
         fileInDiff: f.fileInDiff
       }))
     )
-    setEvent('COMMENT') // never pre-select a binding event
   }
 
   function load(force = false) {
@@ -73,38 +82,37 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
   }
   useEffect(() => { load() }, [prId])
 
-  // Included findings route three ways: anchored -> inline line comment;
-  // un-anchored but file IS in the diff -> whole-file comment; un-anchored and
-  // file absent from the diff -> folded into the summary (GitHub can't comment
-  // on a file it doesn't have).
-  const fileLevel = useMemo(
-    () => findings.filter((f) => f.include && !f.anchored && f.fileInDiff),
-    [findings]
-  )
-  const folded = useMemo(
-    () => findings.filter((f) => f.include && !f.anchored && !f.fileInDiff),
-    [findings]
-  )
+  useEffect(() => {
+    const sync = (e: KeyboardEvent) => setOpenAfter(e.altKey)
+    const reset = () => setOpenAfter(false)
+    window.addEventListener('keydown', sync)
+    window.addEventListener('keyup', sync)
+    window.addEventListener('blur', reset) // dropped keyup while unfocused would otherwise stick
+    return () => {
+      window.removeEventListener('keydown', sync)
+      window.removeEventListener('keyup', sync)
+      window.removeEventListener('blur', reset)
+    }
+  }, [])
 
-  async function post() {
+  // Only anchored, included findings are posted — as inline line comments on the
+  // pending review. The assessment and un-anchored notes stay in the dashboard.
+  const postable = findings.filter((f) => f.include && f.anchored && typeof f.resolvedLine === 'number')
+
+  async function post(openPr: boolean) {
     setPosting(true)
     setPostError(null)
-    const comments = findings
-      .filter((f) => f.include && f.anchored && typeof f.resolvedLine === 'number')
-      .map((f) => ({ path: f.file, line: f.resolvedLine!, side: f.resolvedSide ?? 'RIGHT', body: f.note }))
-    const fileComments = fileLevel.map((f) => ({ path: f.file, body: f.note }))
-    const foldedText = folded.map((f) => `- ${f.file}: ${f.note}`).join('\n')
-    const body = foldedText ? `${summary}\n\n---\n${foldedText}` : summary
-    const payload: PostReviewPayload = { body, event, comments, fileComments }
+    const comments = postable.map((f) => ({
+      path: f.file,
+      line: f.resolvedLine!,
+      side: f.resolvedSide ?? 'RIGHT',
+      body: f.note
+    }))
+    const payload: PostReviewPayload = { comments }
     const res: PostReviewResult = await api.postReview(prId, payload)
     setPosting(false)
     if (res.ok) {
-      if (res.warning) {
-        // Review posted; some file-level comments didn't. Surface it instead of closing.
-        setPostError(res.warning)
-        return
-      }
-      if (res.url) api.openExternal(res.url)
+      if (openPr) api.openExternal(filesUrl ?? res.url)
       onClose()
     } else {
       setPostError(res.message)
@@ -115,11 +123,36 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
     setFindings((prev) => prev.map((f, idx) => (idx === i ? { ...f, ...p } : f)))
   }
 
+  const reco = result ? RECO_META[result.recommendation] : null
+  const otherNotes = findings.filter((f) => !f.anchored)
+  const hasAnchored = findings.some((f) => f.anchored)
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[calc(100vh-4rem)] w-[calc(100vw-4rem)] max-w-6xl flex-col gap-0 p-0 sm:max-w-6xl">
         <DialogHeader className="shrink-0 border-b px-6 py-4">
-          <DialogTitle>Draft review <span className="text-muted-foreground font-normal">— review before posting</span></DialogTitle>
+          {/* pr-8 keeps the title clear of the Dialog's absolute top-right close (X). */}
+          <DialogTitle className="flex min-w-0 items-center gap-2 pr-8">
+            <span className="shrink-0">Draft review</span>
+            {prTitle && (
+              <>
+                <span className="shrink-0 text-muted-foreground">—</span>
+                {filesUrl ? (
+                  <button
+                    type="button"
+                    onClick={() => api.openExternal(filesUrl)}
+                    title={`${prTitle} — open on GitHub`}
+                    className="inline-flex min-w-0 items-center gap-1.5 font-normal text-sev-info hover:underline"
+                  >
+                    <span className="truncate">{prTitle}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  </button>
+                ) : (
+                  <span className="truncate font-normal text-muted-foreground">{prTitle}</span>
+                )}
+              </>
+            )}
+          </DialogTitle>
         </DialogHeader>
         {error ? (
           <p className="p-6 text-sm text-destructive">{error}</p>
@@ -127,59 +160,87 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
           <p className="p-6 text-muted-foreground">Generating…</p>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-6 py-5">
-            <div className="grid gap-1.5">
-              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Summary</span>
-              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-32 leading-relaxed" />
+            {/* Read-only assessment — your private read on the PR; NOT posted. */}
+            <div className="grid gap-2 rounded-md border bg-background p-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Assessment</span>
+                {reco && <Chip tone={reco.tone}>{reco.label}</Chip>}
+                <span className="ml-auto text-xs italic text-muted-foreground">Dashboard only — not posted</span>
+              </div>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+                {result.assessment || 'No assessment generated.'}
+              </p>
             </div>
 
-            {findings.length === 0 ? (
-              <p className="text-muted-foreground">No inline findings.</p>
+            {/* Line comments — the ONLY thing posted to GitHub (as a draft). */}
+            <div className="grid gap-1.5">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Line comments {hasAnchored && <span className="normal-case tracking-normal">· {postable.length} selected</span>}
+              </span>
+            </div>
+            {!hasAnchored ? (
+              <p className="text-sm text-muted-foreground">No line-level comments — nothing to post.</p>
             ) : (
-              findings.map((f, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'rounded-r-md border-l-[3px] bg-background p-4',
-                    SEVERITY_BORDER[f.severity] ?? 'border-l-border',
-                    !f.include && 'opacity-50'
-                  )}
-                >
-                  <div className="mb-2.5 flex items-center gap-2 text-xs text-muted-foreground">
-                    <Checkbox checked={f.include} onCheckedChange={(c) => patchFinding(i, { include: c === true })} aria-label="Include comment" />
-                    <Chip tone={SEVERITY_TONE[f.severity] ?? 'neutral'}>{f.severity}</Chip>
-                    {f.anchored ? (
+              findings.map((f, i) =>
+                f.anchored ? (
+                  <div
+                    key={i}
+                    className={cn(
+                      'rounded-r-md border-l-[3px] bg-background p-4',
+                      SEVERITY_BORDER[f.severity] ?? 'border-l-border',
+                      !f.include && 'opacity-50'
+                    )}
+                  >
+                    <div className="mb-2.5 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Checkbox checked={f.include} onCheckedChange={(c) => patchFinding(i, { include: c === true })} aria-label="Include comment" />
+                      <Chip tone={SEVERITY_TONE[f.severity] ?? 'neutral'}>{f.severity}</Chip>
                       <span>
                         → {f.file}:{f.resolvedLine} {f.resolvedSide === 'LEFT' ? '(old)' : ''}
                         {typeof f.snappedFrom === 'number' && <span className="text-sev-mention"> (snapped from :{f.snappedFrom})</span>}
                       </span>
-                    ) : f.fileInDiff ? (
-                      <span>→ {f.file} <span className="italic text-muted-foreground">(whole-file comment)</span></span>
-                    ) : (
-                      <span className="italic">folded into summary ({f.file})</span>
-                    )}
-                  </div>
-                  {f.anchored && (
+                    </div>
                     <DiffSnippet patch={result.patch} file={f.file} line={f.resolvedLine} side={f.resolvedSide} />
-                  )}
-                  <Textarea value={f.note} onChange={(e) => patchFinding(i, { note: e.target.value })} className="min-h-24 leading-relaxed" />
-                </div>
-              ))
+                    <Textarea value={f.note} onChange={(e) => patchFinding(i, { note: e.target.value })} className="min-h-24 leading-relaxed" />
+                  </div>
+                ) : null
+              )
+            )}
+
+            {/* Un-anchored findings: shown for context, never posted. */}
+            {otherNotes.length > 0 && (
+              <div className="grid gap-2 rounded-md border bg-background p-4">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  Other notes <span className="normal-case tracking-normal italic">— not posted to GitHub</span>
+                </span>
+                <ul className="grid gap-1.5">
+                  {otherNotes.map((f, i) => (
+                    <li key={i} className="flex gap-2 text-sm leading-relaxed">
+                      <Chip tone={SEVERITY_TONE[f.severity] ?? 'neutral'}>{f.severity}</Chip>
+                      <span className="text-card-foreground"><span className="text-muted-foreground">{f.file}</span> — {f.note}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         )}
 
         {result && !error && (
           <div className="flex shrink-0 items-center justify-between gap-3 border-t px-6 py-4">
-            <ToggleGroup type="single" value={event} onValueChange={(v) => v && setEvent(v as Event)} variant="outline" aria-label="Review event">
-              <ToggleGroupItem value="COMMENT">Comment</ToggleGroupItem>
-              <ToggleGroupItem value="APPROVE">Approve</ToggleGroupItem>
-              <ToggleGroupItem value="REQUEST_CHANGES">Request changes</ToggleGroupItem>
-            </ToggleGroup>
+            <span className="text-xs text-muted-foreground">
+              Posts the selected line comments as a draft (pending) review — finish &amp; submit it on GitHub. Hold&nbsp;⌥ to open the PR after.
+            </span>
             <div className="flex items-center gap-2">
               {postError && <span className="mr-1 text-sm text-destructive">{postError}</span>}
               <Button variant="ghost" size="sm" onClick={() => load(true)} disabled={posting}>Regenerate</Button>
               <Button variant="outline" size="sm" onClick={onClose} disabled={posting}>Cancel</Button>
-              <Button size="sm" onClick={post} disabled={posting}>{posting ? 'Posting…' : 'Post review'}</Button>
+              <Button
+                size="sm"
+                onClick={(e) => post(e.altKey || openAfter)}
+                disabled={posting || postable.length === 0}
+              >
+                {posting ? 'Starting…' : openAfter ? 'Start review & open PR' : 'Start review'}
+              </Button>
             </div>
           </div>
         )}

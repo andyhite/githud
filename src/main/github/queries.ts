@@ -12,6 +12,7 @@ const PR_FIELDS = `
   # normalize-prs falls back to counting every check. Rulesets are NOT covered here.
   baseRef { branchProtectionRule { requiredStatusCheckContexts } }
   isDraft
+  isInMergeQueue
   updatedAt
   mergeable
   additions
@@ -73,6 +74,7 @@ const TEAM_PR_FIELDS = `
   baseRefName
   baseRef { branchProtectionRule { requiredStatusCheckContexts } }
   isDraft
+  isInMergeQueue
   updatedAt
   mergeable
   additions
@@ -162,8 +164,10 @@ export function labelSearchClause(labels: string[]): string {
 // rate-limit ceiling). `sort:updated-desc` so the (capped) page is the most
 // recently active PRs. Owner + labels ride in as a search-query variable value
 // (not interpolated into the GraphQL), so there's no injection surface.
+// `draft:false` excludes work-in-progress PRs — the Team panel is an overview of
+// review-ready work, so drafts are noise there (unlike your own My-PRs panel).
 export function teamSearchQuery(ownerClause: string, labels: string[]): string {
-  return `is:open is:pr archived:false sort:updated-desc ${ownerClause} ${labelSearchClause(labels)}`
+  return `is:open is:pr draft:false archived:false sort:updated-desc ${ownerClause} ${labelSearchClause(labels)}`
 }
 
 // How many results the team search pulls. Smaller than the 50 used for

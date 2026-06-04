@@ -44,13 +44,22 @@ describe('deriveEvents', () => {
     expect(events.map((e) => e.kind)).toEqual(['comment', 'mention'])
   })
 
-  it('emits a CI event only on transition into failure/success', () => {
+  it('emits a CI event only on transition into failure/success (for your own PRs)', () => {
     const prev = [pr({ ciState: 'pending' })]
     const next = [pr({ ciState: 'failure' })]
     const [e] = deriveEvents(prev, next, 'me', NOW)
     expect(e).toMatchObject({ id: 'ci:PR1:oid1:failure', kind: 'ci_failed', createdAt: NOW })
     // no transition -> nothing
     expect(deriveEvents([pr({ ciState: 'failure' })], [pr({ ciState: 'failure' })], 'me', NOW)).toEqual([])
+  })
+
+  it('never emits a CI event for a review-source PR (e.g. a dependabot PR you were asked to review)', () => {
+    // CI status is the author's concern; you don't want toasts for checks on
+    // PRs you're only reviewing. Covers both directions of the transition.
+    const failed = deriveEvents([pr({ source: 'review', ciState: 'pending' })], [pr({ source: 'review', ciState: 'failure' })], 'me', NOW)
+    const passed = deriveEvents([pr({ source: 'review', ciState: 'pending' })], [pr({ source: 'review', ciState: 'success' })], 'me', NOW)
+    const regressed = deriveEvents([pr({ source: 'review', ciState: 'success' })], [pr({ source: 'review', ciState: 'failure' })], 'me', NOW)
+    expect([...failed, ...passed, ...regressed]).toEqual([])
   })
 
   it('emits review_requested for a newly appeared PR in the review set, not for new mine PRs', () => {

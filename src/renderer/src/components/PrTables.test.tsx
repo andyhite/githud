@@ -20,7 +20,7 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
     reviewState: 'changes_requested', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'failure', passed: 11, failed: 1, total: 12 },
     additions: 40, deletions: 8, changedFiles: 3, unresolvedThreads: 0, labels: [],
-    updatedAt: '2026-06-01T00:00:00Z', isStale: true, isDraft: false, ...over
+    updatedAt: '2026-06-01T00:00:00Z', isStale: true, isDraft: false, isQueued: false, ...over
   }
 }
 
@@ -103,6 +103,44 @@ describe('PrTable (my-open-PRs config)', () => {
   it('shows a dash when there are no reviewers', () => {
     render(<PrTable items={[pr({ reviewers: [] })]} columns={MINE_COLS} emptyVariant="mine" />)
     expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  it('surfaces approval even when a higher-priority status (failing CI) would mask it', () => {
+    render(
+      <PrTable
+        items={[pr({ reviewState: 'approved', approvals: 2, checks: { state: 'failure', passed: 1, failed: 1, total: 2 } })]}
+        columns={MINE_COLS}
+        emptyVariant="mine"
+      />
+    )
+    expect(screen.getByText(/CI failing/i)).toBeInTheDocument() // primary status still shown
+    expect(screen.getByText(/✓ 2/)).toBeInTheDocument() // approval no longer masked
+  })
+
+  it('shows "queued to merge" instead of the approval count when the PR is in the merge queue', () => {
+    render(
+      <PrTable
+        items={[pr({ reviewState: 'approved', approvals: 3, isQueued: true })]}
+        columns={MINE_COLS}
+        emptyVariant="mine"
+      />
+    )
+    expect(screen.getByText(/queued to merge/i)).toBeInTheDocument()
+    expect(screen.queryByText(/✓ 3/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/3 approval/i)).not.toBeInTheDocument()
+  })
+
+  it('does not duplicate approval when the status chip already shows the approval count', () => {
+    // approved + CI still pending + mergeable → statusTag falls through to "N approvals"
+    render(
+      <PrTable
+        items={[pr({ reviewState: 'approved', approvals: 1, mergeable: 'mergeable', checks: { state: 'pending', passed: 0, failed: 0, total: 1 } })]}
+        columns={MINE_COLS}
+        emptyVariant="mine"
+      />
+    )
+    expect(screen.getByText(/1 approval/i)).toBeInTheDocument()
+    expect(screen.queryByText(/✓ 1/)).not.toBeInTheDocument()
   })
 
   it('renders an empty state with no rows', () => {

@@ -120,7 +120,7 @@ function Dashboard({
         onRefresh={() => refetch()}
         onOpenSettings={onOpenSettings}
         isFetching={isFetching}
-        pollBaseMs={Math.max(30, settings.refreshIntervalSeconds || 60) * 1000}
+        pollBaseMs={Math.max(30, settings.refreshIntervalSeconds || 30) * 1000}
         pollReserveFraction={1 - Math.min(Math.max(settings.apiBudgetPercent || 80, 10), 100) / 100}
       />
       {aiOn && digest?.markdown?.trim() && (
@@ -231,7 +231,14 @@ function Dashboard({
       {showSettings && <Settings onClose={onCloseSettings} />}
       {showDigest && <Digest onClose={() => setShowDigest(false)} />}
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
-      {reviewId && <ReviewPanel prId={reviewId} onClose={() => setReviewId(null)} />}
+      {reviewId && (
+        <ReviewPanel
+          prId={reviewId}
+          prUrl={snapshot?.needsReview.find((p) => p.id === reviewId)?.url}
+          prTitle={snapshot?.needsReview.find((p) => p.id === reviewId)?.title}
+          onClose={() => setReviewId(null)}
+        />
+      )}
     </div>
   )
 }

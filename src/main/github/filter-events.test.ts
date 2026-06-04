@@ -11,7 +11,7 @@ function pr(login: string, over: Partial<PullRequest> = {}): PullRequest {
     id: `pr-${login}`, number: 1, title: 't', url: 'u', repo: 'o/web', branch: 'b', baseBranch: 'main',
     author: { login, avatarUrl: '' }, reviewers: [], reviewState: 'none', approvals: 0, mergeable: 'mergeable',
     checks: { state: 'none', passed: 0, failed: 0, total: 0 }, additions: 0, deletions: 0, changedFiles: 0,
-    unresolvedThreads: 0, updatedAt: 'x', isStale: false, isDraft: false, ...over
+    unresolvedThreads: 0, updatedAt: 'x', isStale: false, isDraft: false, isQueued: false, ...over
   } as PullRequest
 }
 

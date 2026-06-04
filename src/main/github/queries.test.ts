@@ -46,16 +46,20 @@ describe('labelSearchClause', () => {
 })
 
 describe('teamSearchQuery', () => {
-  it('builds one open-PR search scoped to the owner clause + all labels, most-recent first', () => {
+  it('builds one open, non-draft PR search scoped to the owner clause + all labels, most-recent first', () => {
     expect(teamSearchQuery('user:me org:acme', ['frontend', 'bug'])).toBe(
-      'is:open is:pr archived:false sort:updated-desc user:me org:acme label:"frontend","bug"'
+      'is:open is:pr draft:false archived:false sort:updated-desc user:me org:acme label:"frontend","bug"'
     )
   })
 
   it('handles a single owner and a single label', () => {
     expect(teamSearchQuery('org:acme', ['frontend'])).toBe(
-      'is:open is:pr archived:false sort:updated-desc org:acme label:"frontend"'
+      'is:open is:pr draft:false archived:false sort:updated-desc org:acme label:"frontend"'
     )
+  })
+
+  it('excludes drafts (draft:false) so work-in-progress PRs never reach the Team panel', () => {
+    expect(teamSearchQuery('user:me', ['x'])).toContain('draft:false')
   })
 })
 
