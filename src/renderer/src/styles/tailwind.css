@@ -2,62 +2,66 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Base16 Tomorrow (light) — sister palette to Tomorrow Night below.
+   https://github.com/chriskempson/base16 */
 :root {
   --radius: 0.5rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+  --background: #ffffff;          /* base00 */
+  --foreground: #4d4d4c;          /* base05 */
+  --card: #ffffff;                /* base00 (separated from bg by --border) */
+  --card-foreground: #4d4d4c;     /* base05 */
+  --popover: #ffffff;             /* base00 */
+  --popover-foreground: #4d4d4c;  /* base05 */
+  --primary: #4d4d4c;             /* base05 */
+  --primary-foreground: #ffffff;  /* base00 */
+  --secondary: #e0e0e0;           /* base01 */
+  --secondary-foreground: #4d4d4c;/* base05 */
+  --muted: #e0e0e0;               /* base01 */
+  --muted-foreground: #8e908c;    /* base03 */
+  --accent: #e0e0e0;              /* base01 */
+  --accent-foreground: #4d4d4c;   /* base05 */
+  --destructive: #c82829;         /* base08 */
+  --destructive-foreground: #ffffff;
+  --border: #d6d6d6;              /* base02 */
+  --input: #d6d6d6;               /* base02 */
+  --ring: #4271ae;                /* base0D */
 
-  --sev-info: oklch(0.55 0.18 256);
-  --sev-success: oklch(0.62 0.17 150);
-  --sev-failure: oklch(0.58 0.22 27);
-  --sev-mention: oklch(0.68 0.14 75);
-  --sev-effort: oklch(0.62 0.2 300);
+  --sev-info: #4271ae;            /* base0D blue */
+  --sev-success: #718c00;         /* base0B green */
+  --sev-failure: #c82829;         /* base08 red */
+  --sev-mention: #b58900;         /* base0A yellow, darkened for readable chip text */
+  --sev-effort: #8959a8;          /* base0E purple */
 }
 
+/* Base16 Tomorrow Night — the user's preferred IDE/terminal theme.
+   https://github.com/chriskempson/base16 */
 .dark {
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.92 0.004 286.32);
-  --primary-foreground: oklch(0.21 0.006 285.885);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.552 0.016 285.938);
+  --background: #1d1f21;          /* base00 */
+  --foreground: #c5c8c6;          /* base05 */
+  --card: #282a2e;                /* base01 (a step lighter than bg) */
+  --card-foreground: #c5c8c6;     /* base05 */
+  --popover: #282a2e;             /* base01 */
+  --popover-foreground: #c5c8c6;  /* base05 */
+  --primary: #c5c8c6;             /* base05 */
+  --primary-foreground: #1d1f21;  /* base00 */
+  --secondary: #373b41;           /* base02 */
+  --secondary-foreground: #c5c8c6;/* base05 */
+  --muted: #373b41;               /* base02 */
+  --muted-foreground: #969896;    /* base03 */
+  --accent: #373b41;              /* base02 */
+  --accent-foreground: #c5c8c6;   /* base05 */
+  --destructive: #cc6666;         /* base08 */
+  --destructive-foreground: #1d1f21;
+  --border: #373b41;              /* base02 */
+  --input: #373b41;               /* base02 */
+  --ring: #81a2be;                /* base0D */
 
-  --sev-info: oklch(0.72 0.15 250);
-  --sev-success: oklch(0.75 0.18 150);
-  --sev-failure: oklch(0.68 0.21 25);
-  --sev-mention: oklch(0.78 0.13 80);
-  --sev-effort: oklch(0.72 0.17 300);
+  --sev-info: #81a2be;            /* base0D blue */
+  --sev-success: #b5bd68;         /* base0B green */
+  --sev-failure: #cc6666;         /* base08 red */
+  --sev-mention: #f0c674;         /* base0A yellow */
+  --sev-effort: #b294bb;          /* base0E purple */
 }
 
 @theme inline {
