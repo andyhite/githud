@@ -481,6 +481,13 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
+  // In dev (`app.isPackaged` false) the dock shows the raw Electron icon — a
+  // packaged build picks up build/icon.icns automatically. Set it here so dev
+  // matches. process.cwd() is the project root under `electron-vite dev`.
+  if (!app.isPackaged && process.platform === 'darwin' && app.dock) {
+    const dockIcon = nativeImage.createFromPath(join(process.cwd(), 'build/icon.png'))
+    if (!dockIcon.isEmpty()) app.dock.setIcon(dockIcon)
+  }
   registerIpc()
   lastSnapshot = loadCachedSnapshot()
   applyLoginItem(loadSettings())

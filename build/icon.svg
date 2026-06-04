@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Tile: subtle top-lit zinc gradient -->
+    <linearGradient id="tile" x1="512" y1="92" x2="512" y2="932" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#26292c"/>
+      <stop offset="1" stop-color="#141517"/>
+    </linearGradient>
+    <!-- Faint radial lift behind the radar so the center reads brighter -->
+    <radialGradient id="lift" cx="512" cy="500" r="330" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b5bd68" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#b5bd68" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Sweep wedge: green trail fading from the leading edge -->
+    <linearGradient id="sweep" x1="512" y1="512" x2="800" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b5bd68" stop-opacity="0"/>
+      <stop offset="1" stop-color="#b5bd68" stop-opacity="0.55"/>
+    </linearGradient>
+    <!-- Soft glow for the live blip / center -->
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#b5bd68" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#b5bd68" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="dish">
+      <circle cx="512" cy="500" r="300"/>
+    </clipPath>
+  </defs>
+
+  <!-- macOS-style rounded tile -->
+  <rect x="92" y="92" width="840" height="840" rx="188" fill="url(#tile)"/>
+  <rect x="92.5" y="92.5" width="839" height="839" rx="187.5" fill="none" stroke="#3b4045" stroke-opacity="0.8" stroke-width="1"/>
+
+  <circle cx="512" cy="500" r="330" fill="url(#lift)"/>
+
+  <!-- Radar grid -->
+  <g stroke="#414750" fill="none">
+    <circle cx="512" cy="500" r="300" stroke-opacity="0.55" stroke-width="3"/>
+    <circle cx="512" cy="500" r="205" stroke-opacity="0.45" stroke-width="2.5"/>
+    <circle cx="512" cy="500" r="110" stroke-opacity="0.40" stroke-width="2.5"/>
+    <line x1="212" y1="500" x2="812" y2="500" stroke-opacity="0.30" stroke-width="2"/>
+    <line x1="512" y1="200" x2="512" y2="800" stroke-opacity="0.30" stroke-width="2"/>
+  </g>
+
+  <!-- Sweep (clipped to the outer dish) -->
+  <g clip-path="url(#dish)">
+    <path d="M512 500 L512 200 A300 300 0 0 1 772 350 Z" fill="url(#sweep)"/>
+    <!-- bright leading edge -->
+    <line x1="512" y1="500" x2="772" y2="350" stroke="#c7cf7e" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <!-- Blips -->
+  <!-- live (green) blip with pulse ring + glow -->
+  <circle cx="648" cy="318" r="60" fill="url(#glow)"/>
+  <circle cx="648" cy="318" r="34" fill="none" stroke="#b5bd68" stroke-opacity="0.45" stroke-width="3"/>
+  <circle cx="648" cy="318" r="15" fill="#c7cf7e"/>
+  <!-- info (blue) blip -->
+  <circle cx="356" cy="372" r="11" fill="#81a2be"/>
+  <!-- mention (amber) blip -->
+  <circle cx="430" cy="648" r="10" fill="#f0c674"/>
+  <!-- faint distant green contact -->
+  <circle cx="690" cy="612" r="8" fill="#b5bd68" fill-opacity="0.45"/>
+
+  <!-- Center node -->
+  <circle cx="512" cy="500" r="40" fill="url(#glow)"/>
+  <circle cx="512" cy="500" r="15" fill="#c7cf7e"/>
+</svg>
