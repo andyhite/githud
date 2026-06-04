@@ -16,7 +16,10 @@ beforeEach(() => {
     getAiStatus: vi.fn().mockResolvedValue({ hasKey: false }),
     saveAiKey: vi.fn().mockResolvedValue({ ok: true }),
     getAuthStatus: vi.fn().mockResolvedValue({ hasToken: true, login: 'me' }),
-    saveToken: vi.fn().mockResolvedValue({ ok: true, login: 'me' })
+    saveToken: vi.fn().mockResolvedValue({ ok: true, login: 'me' }),
+    getReviewInstructions: vi.fn().mockResolvedValue(''),
+    saveReviewInstructions: vi.fn().mockResolvedValue(undefined),
+    resetReviewInstructions: vi.fn().mockResolvedValue('')
   } as any
 })
 
