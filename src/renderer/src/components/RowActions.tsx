@@ -34,7 +34,7 @@ export function RowActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-44">
         {!isHidden && aiOn && onReview && (
-          <DropdownMenuItem onClick={() => onReview(pr.id)}>Pre-review (AI)</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onReview(pr.id)}>Draft review</DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => api.copyToClipboard(pr.url)}>Copy PR link</DropdownMenuItem>
         {pr.branch && (

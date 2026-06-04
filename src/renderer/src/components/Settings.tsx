@@ -18,6 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 
 const NOTIFY_OPTIONS: { kind: FeedEventKind; label: string }[] = [
   { kind: 'mention', label: 'Mentions' },
@@ -40,11 +41,12 @@ const INTERVAL_PRESETS = [
   { label: '5m', value: 300 }
 ]
 
-type SectionId = 'general' | 'notifications' | 'filters' | 'connections' | 'appearance'
+type SectionId = 'general' | 'notifications' | 'filters' | 'review' | 'connections' | 'appearance'
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'filters', label: 'Filters & Team' },
+  { id: 'review', label: 'Review' },
   { id: 'connections', label: 'Connections' },
   { id: 'appearance', label: 'Appearance' }
 ]
@@ -67,11 +69,13 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [aiConfigured, setAiConfigured] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [testStatus, setTestStatus] = useState<string | null>(null)
+  const [reviewInstructions, setReviewInstructions] = useState('')
   const { theme, setTheme } = useTheme()
 
   useEffect(() => { api.getSettings().then(setSettings) }, [])
   useEffect(() => { api.getAiStatus().then((s) => setAiConfigured(s.hasKey)) }, [])
   useEffect(() => { api.getAuthStatus().then((s) => setTokenLogin(s.login)) }, [])
+  useEffect(() => { api.getReviewInstructions().then(setReviewInstructions) }, [])
 
   const patch = (p: Partial<SettingsType>) => setSettings((s) => ({ ...s, ...p }))
 
@@ -97,6 +101,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
       const res = await api.saveAiKey(aiKey.trim())
       if (!res.ok) { setAiError(res.error ?? 'Anthropic rejected the key.'); setSection('connections'); return }
     }
+    await api.saveReviewInstructions(reviewInstructions)
     onClose()
   }
 
@@ -281,6 +286,30 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 />
                 <p className={fieldHelp}>Scope the team search to these orgs. Your own repos are always included.</p>
               </div>
+            </TabsContent>
+
+            <TabsContent value="review" className="grid gap-3 mt-0">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="review-instructions">Review voice & focus</Label>
+                <Button
+                  type="button"
+                  variant="link"
+                  size="sm"
+                  className="h-auto p-0 text-xs"
+                  onClick={async () => { const t = await api.resetReviewInstructions(); setReviewInstructions(t) }}
+                >
+                  Reset to default
+                </Button>
+              </div>
+              <Textarea
+                id="review-instructions"
+                className="min-h-[40vh] font-mono text-xs"
+                value={reviewInstructions}
+                onChange={(e) => setReviewInstructions(e.target.value)}
+              />
+              <p className={fieldHelp}>
+                The system prompt used when drafting PR reviews. Seeded from your andy-code-review skill; edits are saved when you click Save.
+              </p>
             </TabsContent>
 
             <TabsContent value="connections" className="grid gap-5 mt-0">
