@@ -12,8 +12,12 @@ import { loadCache, saveCache, cacheKey } from './ai/cache'
 import { triagePr } from './ai/triage'
 import { buildDigest, digestFingerprint, eventsSince, buildDeltaDigest } from './ai/digest'
 import { reviewPr } from './ai/review'
+import { parseDiffAnchors } from './github/parse-diff-anchors'
+import { anchorFindings } from './ai/anchor-findings'
+import { postReview as postReviewToGithub } from './github/post-review'
+import { loadReviewInstructions, saveReviewInstructions, resetReviewInstructions } from './ai/review-instructions-store'
 import { fetchPrDiff } from './github/fetch-diff'
-import type { TriageVerdict, ReviewResult } from '@shared/types'
+import type { TriageVerdict, ReviewResult, PostReviewPayload, PostReviewResult } from '@shared/types'
 import { createClient, validateToken } from './github/client'
 import { filterEvents, applyAuthorFilters } from './github/filter-events'
 import { Poller } from './poller'
@@ -448,7 +452,7 @@ function registerIpc(): void {
     const key = loadAiKey()
     if (!key) throw new Error('No AI key configured')
     if (!lastSnapshot) throw new Error('No data yet')
-    const pr = [...lastSnapshot.needsReview, ...lastSnapshot.myPullRequests].find((p) => p.id === prId)
+    const pr = lastSnapshot.needsReview.find((p) => p.id === prId)
     if (!pr) throw new Error('PR not found')
     const headKey = pr.updatedAt
     const cache = loadCache()
@@ -456,11 +460,24 @@ function registerIpc(): void {
     if (cached) return cached
     if (!ensurePoller() || !poller) throw new Error('No token configured')
     const diff = await fetchPrDiff(poller.client, pr.repo, pr.number)
-    const result = await reviewPr(createAiClient(key), prId, headKey, pr.title, diff, new Date().toISOString())
+    const raw = await reviewPr(createAiClient(key), loadReviewInstructions(), prId, headKey, pr.title, diff, new Date().toISOString())
+    const anchors = parseDiffAnchors(diff.patch)
+    const result: ReviewResult = { ...raw, findings: anchorFindings(raw.findings, anchors) }
     cache[cacheKey('review', prId, headKey)] = result
     saveCache(cache)
     return result
   })
+  ipcMain.handle('postReview', async (_e, prId: string, payload: PostReviewPayload): Promise<PostReviewResult> => {
+    if (!lastSnapshot) return { ok: false, kind: 'unknown', message: 'No data yet' }
+    const pr = lastSnapshot.needsReview.find((p) => p.id === prId)
+    if (!pr) return { ok: false, kind: 'unknown', message: 'PR not found' }
+    if (!ensurePoller() || !poller) return { ok: false, kind: 'auth', message: 'No token configured' }
+    const [owner, name] = pr.repo.split('/')
+    return postReviewToGithub(poller.client, owner, name, pr.number, payload)
+  })
+  ipcMain.handle('getReviewInstructions', async (): Promise<string> => loadReviewInstructions())
+  ipcMain.handle('saveReviewInstructions', async (_e, text: string): Promise<void> => { saveReviewInstructions(text) })
+  ipcMain.handle('resetReviewInstructions', async (): Promise<string> => resetReviewInstructions())
 }
 
 app.whenReady().then(async () => {
