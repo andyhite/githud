@@ -94,26 +94,6 @@ export interface DashboardSnapshot {
   errorKind?: 'rate_limit' | 'offline'
 }
 
-// The three PR panels. Each has a fixed "source" (what it fetches) but a
-// user-configurable set of named client-side views layered on top.
-export type PanelId = 'review' | 'other' | 'mine'
-
-// A client-side filter applied to a panel's already-fetched PRs. Within a
-// dimension the values are OR'd (any match); across dimensions they AND. An
-// empty/absent dimension imposes no constraint.
-export interface PanelViewFilter {
-  labels?: string[] // PR carries ANY of these label names
-  authors?: string[] // PR authored by ANY of these logins
-  repos?: string[] // PR in ANY of these repos ("owner/name")
-}
-
-// A named filter combination, surfaced as a switchable tag in the panel header.
-export interface PanelView {
-  id: string
-  name: string
-  filter: PanelViewFilter
-}
-
 export interface Settings {
   staleThresholdDays: number
   notificationsEnabled: boolean
@@ -146,11 +126,6 @@ export interface Settings {
   // the owner scope. '' = no team filter. (Single team only — GitHub issue/PR
   // search can't reliably OR multiple team-review-requested qualifiers.)
   otherTeam: string
-  // --- Named client-side views per panel (the header tag switcher) ---
-  // (Filters by label/author/repo — team filtering is the source-level otherTeam.)
-  // Each panel's list of saved filter combinations. The active one is transient
-  // renderer state (defaults to "All" = no filter); only the definitions persist.
-  panelViews: Record<PanelId, PanelView[]>
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -165,8 +140,7 @@ export const DEFAULT_SETTINGS: Settings = {
   apiBudgetPercent: 80,
   teamLabels: [],
   teamOrgs: [],
-  otherTeam: '',
-  panelViews: { review: [], other: [], mine: [] }
+  otherTeam: ''
 }
 
 export interface NotificationSpec {

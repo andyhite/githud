@@ -21,9 +21,6 @@ import { ReviewPanel } from './components/ReviewPanel'
 import { sortNeedsReview, sortMyPrs, sortTeamPrs } from './components/sort-prs'
 import { CommandPalette, Command } from './components/CommandPalette'
 import { TrendStrip } from './components/TrendStrip'
-import { PanelViewTabs } from './components/PanelViewTabs'
-import { applyPanelView } from './components/panel-views'
-import { PanelId } from '@shared/types'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Chip } from './components/Chip'
 import { useNarrowViewport } from './hooks/useNarrowViewport'
@@ -76,27 +73,18 @@ function Dashboard({
   const hiddenIds = snapshot?.hiddenPrIds ?? []
   const hiddenSet = new Set(hiddenIds)
 
-  // Per-panel active named view (transient — "All" = null). The view definitions
-  // live in settings; switching one filters that panel's rows client-side.
-  const [activeView, setActiveView] = useState<Record<PanelId, string | null>>({ review: null, other: null, mine: null })
-  const viewsFor = (panel: PanelId) => settings.panelViews?.[panel] ?? []
-  const filterFor = (panel: PanelId) => viewsFor(panel).find((v) => v.id === activeView[panel])?.filter ?? {}
-  const selectView = (panel: PanelId) => (id: string | null) => setActiveView((s) => ({ ...s, [panel]: id }))
-
   const [selected, setSelected] = useState(-1)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [showHiddenReview, setShowHiddenReview] = useState(false)
   const [showHiddenMine, setShowHiddenMine] = useState(false)
   const [showHiddenTeam, setShowHiddenTeam] = useState(false)
 
-  // Triage runs over ALL (non-hidden) needs-review PRs regardless of the active
-  // view, so switching views never triggers verdict refetches.
   const visibleReviewForTriage = (snapshot?.needsReview ?? []).filter((p) => !hiddenSet.has(p.id))
   const verdicts = useTriageVerdicts(aiOn, visibleReviewForTriage)
 
-  const reviewItems = applyPanelView(sortNeedsReview(snapshot?.needsReview ?? [], verdicts), filterFor('review'))
-  const mineItems = applyPanelView(sortMyPrs(snapshot?.myPullRequests ?? []), filterFor('mine'))
-  const teamItems = applyPanelView(sortTeamPrs(snapshot?.teamPullRequests ?? []), filterFor('other'))
+  const reviewItems = sortNeedsReview(snapshot?.needsReview ?? [], verdicts)
+  const mineItems = sortMyPrs(snapshot?.myPullRequests ?? [])
+  const teamItems = sortTeamPrs(snapshot?.teamPullRequests ?? [])
 
   const visibleReview = reviewItems.filter((p) => !hiddenSet.has(p.id))
   const visibleNeedsReview = visibleReview.length
@@ -142,12 +130,7 @@ function Dashboard({
         count={visibleNeedsReview}
         className="lg:flex-1"
         flush
-        actions={
-          <>
-            <PanelViewTabs views={viewsFor('review')} activeId={activeView.review} onSelect={selectView('review')} />
-            <ShowHiddenToggle count={hiddenReviewCount} open={showHiddenReview} onToggle={() => setShowHiddenReview((v) => !v)} />
-          </>
-        }
+        actions={<ShowHiddenToggle count={hiddenReviewCount} open={showHiddenReview} onToggle={() => setShowHiddenReview((v) => !v)} />}
       >
         <PrTable
           items={reviewItems}
@@ -172,12 +155,7 @@ function Dashboard({
           count={teamVisibleCount}
           className="lg:flex-1"
           flush
-          actions={
-            <>
-              <PanelViewTabs views={viewsFor('other')} activeId={activeView.other} onSelect={selectView('other')} />
-              <ShowHiddenToggle count={hiddenTeamCount} open={showHiddenTeam} onToggle={() => setShowHiddenTeam((v) => !v)} />
-            </>
-          }
+          actions={<ShowHiddenToggle count={hiddenTeamCount} open={showHiddenTeam} onToggle={() => setShowHiddenTeam((v) => !v)} />}
         >
           <PrTable
             items={teamItems}
@@ -197,12 +175,7 @@ function Dashboard({
         count={visibleMine}
         className="lg:flex-1"
         flush
-        actions={
-          <>
-            <PanelViewTabs views={viewsFor('mine')} activeId={activeView.mine} onSelect={selectView('mine')} />
-            <ShowHiddenToggle count={hiddenMineCount} open={showHiddenMine} onToggle={() => setShowHiddenMine((v) => !v)} />
-          </>
-        }
+        actions={<ShowHiddenToggle count={hiddenMineCount} open={showHiddenMine} onToggle={() => setShowHiddenMine((v) => !v)} />}
       >
         <PrTable
           items={mineItems}

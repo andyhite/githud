@@ -3,7 +3,6 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PrTable, type PrColumn } from './PrTable'
 import { ShowHiddenToggle } from './RowActions'
-import { PanelViewTabs } from './PanelViewTabs'
 import type { PullRequest } from '@shared/types'
 
 // Column configs mirroring how App.tsx wires each panel, so the assertions below
@@ -212,34 +211,6 @@ describe('PrTable (card layout on narrow viewports)', () => {
     await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
     await userEvent.click(screen.getByRole('menuitem', { name: /^hide$/i }))
     expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
-  })
-})
-
-describe('PanelViewTabs', () => {
-  const views = [
-    { id: 'v1', name: 'Frontend', filter: { labels: ['frontend'] } },
-    { id: 'v2', name: 'My team', filter: { teams: ['acme/web'] } }
-  ]
-
-  it('renders nothing when no views are configured', () => {
-    const { container } = render(<PanelViewTabs views={[]} activeId={null} onSelect={vi.fn()} />)
-    expect(container).toBeEmptyDOMElement()
-  })
-
-  it('renders an All tag plus one per view, marking the active one pressed', () => {
-    render(<PanelViewTabs views={views} activeId="v1" onSelect={vi.fn()} />)
-    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Frontend' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'My team' })).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('selects a view on click and clears back to All (null)', async () => {
-    const onSelect = vi.fn()
-    render(<PanelViewTabs views={views} activeId="v1" onSelect={onSelect} />)
-    await userEvent.click(screen.getByRole('button', { name: 'My team' }))
-    expect(onSelect).toHaveBeenCalledWith('v2')
-    await userEvent.click(screen.getByRole('button', { name: 'All' }))
-    expect(onSelect).toHaveBeenCalledWith(null)
   })
 })
 

@@ -4,9 +4,7 @@ import { api } from '../api'
 import { cn } from '@/lib/utils'
 import { ChipInput } from './ChipInput'
 import { OrgTeamFields } from './OrgTeamFields'
-import { PanelViewsEditor } from './PanelViewsEditor'
 import { useTheme } from './theme-provider'
-import { PanelId } from '@shared/types'
 import {
   Dialog,
   DialogContent,
@@ -44,17 +42,11 @@ const INTERVAL_PRESETS = [
   { label: '5m', value: 300 }
 ]
 
-const PANEL_LABELS: Record<PanelId, string> = {
-  review: 'Needs my review',
-  other: 'Other PRs',
-  mine: 'My open PRs'
-}
-
 type SectionId = 'general' | 'notifications' | 'filters' | 'review' | 'connections' | 'appearance'
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'notifications', label: 'Notifications' },
-  { id: 'filters', label: 'Filters & Views' },
+  { id: 'filters', label: 'Filters & Team' },
   { id: 'review', label: 'Review' },
   { id: 'connections', label: 'Connections' },
   { id: 'appearance', label: 'Appearance' }
@@ -337,23 +329,6 @@ export function Settings({ onClose }: { onClose: () => void }) {
                   />
                   <p className={fieldHelp}>Narrow the panel to open PRs carrying any of these labels.</p>
                 </div>
-              </SettingsGroup>
-
-              <SettingsGroup
-                title="Saved views"
-                hint="Named filter combinations for each panel — switch between them from the tags in the panel header. Within a field the values match any (OR); across fields they all apply (AND)."
-              >
-                {(['review', 'other', 'mine'] as const).map((panel) => (
-                  <div key={panel} className="grid gap-2">
-                    <Label>{PANEL_LABELS[panel]}</Label>
-                    <PanelViewsEditor
-                      views={settings.panelViews?.[panel] ?? []}
-                      onChange={(views) =>
-                        patch({ panelViews: { ...DEFAULT_SETTINGS.panelViews, ...settings.panelViews, [panel]: views } })
-                      }
-                    />
-                  </div>
-                ))}
               </SettingsGroup>
             </TabsContent>
 
