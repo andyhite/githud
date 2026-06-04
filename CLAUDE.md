@@ -1,9 +1,7 @@
 # CLAUDE.md — githud
 
-Personal single-user Electron + React + TypeScript GitHub dashboard. Read-only,
-github.com only, built for one user on one machine. Full rationale lives in
-`docs/superpowers/specs/` (design) and `docs/superpowers/plans/` (implementation
-plan); read those before large changes.
+Single-user Electron + React + TypeScript GitHub dashboard. Read-only,
+github.com only, built to run locally for one user on one machine.
 
 ## Commands (pnpm — not npm)
 
@@ -166,6 +164,5 @@ and any un-anchored findings are dashboard-only and never leave the app.
 Generation and starting the draft are on-demand only (never on the poll loop).
 Still deferred (don't add without a reason): per-repo watch lists, GitHub
 Enterprise / multi-account, assigned-issues panel, auto-update / code signing.
-AI backlog: a key-rotation/removal UI, and the M14 secondary helpers (thread
-TL;DR, mention triage, standup generator) — see the plan in
-`docs/superpowers/plans/`.
+AI backlog: a key-rotation/removal UI, and secondary helpers (thread
+TL;DR, mention triage, standup generator).
