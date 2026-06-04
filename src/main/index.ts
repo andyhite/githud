@@ -6,9 +6,9 @@ import { loadSettings, saveSettings } from './settings-store'
 import { loadCachedSnapshot, cacheSnapshot } from './snapshot-cache'
 import { markRead, markAllRead } from './event-store'
 import { hidePr as storeHidePr, unhidePr as storeUnhidePr, snoozePr as storeSnoozePr, loadHidden, resolveHidden } from './hidden-store'
-import { hasAiKey, saveAiKey as storeAiKey, loadAiKey } from './ai/key-store'
+import { hasAiKey, saveAiKey as storeAiKey, loadAiKey, clearAiKey } from './ai/key-store'
 import { validateAiKey, createAiClient } from './ai/client'
-import { loadCache, saveCache, cacheKey } from './ai/cache'
+import { loadCache, saveCache, cacheKey, clearCache } from './ai/cache'
 import { triagePr } from './ai/triage'
 import { buildDigest, digestFingerprint, eventsSince, buildDeltaDigest } from './ai/digest'
 import { reviewPr } from './ai/review'
@@ -102,6 +102,10 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    // Floor for the single-column/card layout — below this the cards, tab bar,
+    // and top bar stop laying out sensibly, so don't let the window get smaller.
+    minWidth: 440,
+    minHeight: 520,
     title: 'githud',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -310,6 +314,16 @@ function startPolling(): void {
   void runPoll().finally(scheduleNextPoll)
 }
 
+// Halt the self-scheduling loop and cancel any pending tick. Used on sign-out;
+// startPolling() resumes it after a new token is saved.
+function stopPolling(): void {
+  polling = false
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = null
+  }
+}
+
 // Recompute hiddenPrIds against the in-memory snapshot (no network) and push it.
 function recomputeHidden(): DashboardSnapshot | null {
   if (!lastSnapshot) return null
@@ -353,6 +367,21 @@ function registerIpc(): void {
     baselineSeeded = false
     startPolling()
     return { ok: true, login: v.login }
+  })
+
+  // Full local sign-out: remove both encrypted secrets, stop polling, and drop all
+  // in-memory state. The renderer reloads to the first-run token screen.
+  ipcMain.handle('resetCredentials', async (): Promise<{ ok: boolean }> => {
+    stopPolling()
+    clearToken()
+    clearAiKey()
+    poller = null
+    lastSnapshot = null
+    viewerLogin = undefined
+    baselineSeeded = false
+    inFlightPoll = null
+    updateTray(null)
+    return { ok: true }
   })
 
   ipcMain.handle('getSettings', (): Settings => loadSettings())
@@ -411,6 +440,7 @@ function registerIpc(): void {
     storeAiKey(key)
     return { ok: true }
   })
+  ipcMain.handle('clearAiCache', (): void => clearCache())
   ipcMain.handle('getTriage', async (_e, prId: string): Promise<TriageVerdict | null> => {
     const key = loadAiKey()
     if (!key || !lastSnapshot) return null

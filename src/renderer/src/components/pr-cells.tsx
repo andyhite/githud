@@ -102,7 +102,17 @@ export function StatusCell({ pr }: { pr: PullRequest }) {
 // Title (clickable) + a meta line: repo #num · [→ base if stacked] · [author] ·
 // [checks] · [unresolved threads]. These live here rather than in their own
 // columns to keep rows compact and every real column useful for triage.
-export function PrTitleCell({ pr, showAuthor }: { pr: PullRequest; showAuthor?: boolean }) {
+export function PrTitleCell({
+  pr,
+  showAuthor,
+  showAge
+}: {
+  pr: PullRequest
+  showAuthor?: boolean
+  // The card layout has no Age column, so it folds the age into the meta line
+  // (after checks). The table leaves this off — it has a dedicated Age column.
+  showAge?: boolean
+}) {
   const checks = checksMeta(pr)
   const base = stackedBase(pr.baseBranch)
   const checksColor =
@@ -114,11 +124,16 @@ export function PrTitleCell({ pr, showAuthor }: { pr: PullRequest; showAuthor?: 
   return (
     <button
       type="button"
-      className="flex flex-col items-start gap-0.5 text-left w-full"
+      className="flex w-full min-w-0 max-w-full flex-col items-start gap-0.5 text-left"
       onClick={() => api.openExternal(pr.url)}
     >
-      <span className="text-card-foreground hover:text-sev-info hover:underline">{pr.title}</span>
-      <span className="flex flex-wrap items-baseline text-xs text-muted-foreground gap-x-1.5">
+      <span
+        className="block w-full max-w-full truncate text-card-foreground hover:text-sev-info hover:underline"
+        title={pr.title}
+      >
+        {pr.title}
+      </span>
+      <span className="flex min-w-0 max-w-full flex-wrap items-baseline text-xs text-muted-foreground gap-x-1.5">
         <span>
           {pr.repo} #{pr.number}
         </span>
@@ -146,6 +161,12 @@ export function PrTitleCell({ pr, showAuthor }: { pr: PullRequest; showAuthor?: 
           <>
             <span aria-hidden="true">·</span>
             <span>{pr.unresolvedThreads} unresolved</span>
+          </>
+        )}
+        {showAge && (
+          <>
+            <span aria-hidden="true">·</span>
+            <AgeCell pr={pr} />
           </>
         )}
       </span>

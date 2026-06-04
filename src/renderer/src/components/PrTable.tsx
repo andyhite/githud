@@ -5,6 +5,7 @@ import { RowActions } from './RowActions'
 import { EmptyState } from './EmptyState'
 import { cn } from '@/lib/utils'
 import { HideProps } from './hide-types'
+import { useNarrowViewport } from '../hooks/useNarrowViewport'
 
 export type PrColumn = 'diff' | 'status' | 'triage' | 'reviewers' | 'age'
 
@@ -35,6 +36,7 @@ export function PrTable({
   aiOn?: boolean
   onReview?: (id: string) => void
 } & HideProps) {
+  const narrow = useNarrowViewport()
   const hiddenSet = new Set(hiddenIds)
   const visible = items.filter((p) => !hiddenSet.has(p.id))
   const hidden = items.filter((p) => hiddenSet.has(p.id))
@@ -42,6 +44,66 @@ export function PrTable({
   if (loading && items.length === 0) return <p className="px-0.5 py-2 text-muted-foreground">Loading…</p>
   if (visible.length === 0 && !(showHidden && hidden.length > 0)) return <EmptyState variant={emptyVariant} />
 
+  const actions = (pr: PullRequest, isHidden: boolean, alwaysVisible = false, className?: string) => (
+    <RowActions
+      pr={pr}
+      isHidden={isHidden}
+      aiOn={aiOn}
+      alwaysVisible={alwaysVisible}
+      className={className}
+      onHide={onHide}
+      onUnhide={onUnhide}
+      onSnooze={onSnooze}
+      onReview={onReview}
+    />
+  )
+
+  // ── Card layout (narrow panels) ──────────────────────────────────────────
+  // Title on the left, always-visible kebab pinned to the top-right corner (cards
+  // have no row-hover affordance). The age folds into the title's meta line (after
+  // checks) via showAge, and the rest of the columns reflow into a wrapping meta
+  // row. Same cells as the table, so triage/status/etc stay consistent.
+  const card = (pr: PullRequest, isHidden: boolean) => (
+    <div
+      key={pr.id}
+      className={cn(
+        'flex flex-col gap-2 rounded-lg border bg-background p-3',
+        isHidden && 'opacity-50',
+        pr.id === selectedId && 'bg-sev-info/15'
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <PrTitleCell pr={pr} showAuthor={showAuthor} showAge={columns.includes('age')} />
+        </div>
+        {/* Sized to the title's line height (~21px) so the kebab doesn't tower
+            over the first line; -mr keeps the icon optically flush to the edge. */}
+        {actions(pr, isHidden, true, 'h-[1.3125rem] w-6 -mr-1')}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {columns.includes('status') && <StatusCell pr={pr} />}
+        {columns.includes('triage') && <TriageChip verdict={verdicts?.[pr.id]} />}
+        {columns.includes('diff') && <DiffStat pr={pr} />}
+        {columns.includes('reviewers') && pr.reviewers.length > 0 && (
+          <span className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+            <span>Waiting on</span>
+            <ReviewersCell pr={pr} />
+          </span>
+        )}
+      </div>
+    </div>
+  )
+
+  if (narrow) {
+    return (
+      <div className="flex flex-col gap-2 px-2 py-1">
+        {visible.map((pr) => card(pr, false))}
+        {showHidden && hidden.map((pr) => card(pr, true))}
+      </div>
+    )
+  }
+
+  // ── Table layout (wide panels) ───────────────────────────────────────────
   const headFor: Record<PrColumn, string> = {
     diff: 'Diff',
     status: 'Status',
@@ -90,17 +152,7 @@ export function PrTable({
           {cellFor(c, pr)}
         </TableCell>
       ))}
-      <TableCell className="w-14 text-right">
-        <RowActions
-          pr={pr}
-          isHidden={isHidden}
-          aiOn={aiOn}
-          onHide={onHide}
-          onUnhide={onUnhide}
-          onSnooze={onSnooze}
-          onReview={onReview}
-        />
-      </TableCell>
+      <TableCell className="w-14 text-right">{actions(pr, isHidden)}</TableCell>
     </TableRow>
   )
 

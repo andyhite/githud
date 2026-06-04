@@ -123,7 +123,10 @@ query Dashboard($needsReview: String!, $mine: String!) {
   }
 }`
 
-export const NEEDS_REVIEW_QUERY = 'is:open is:pr review-requested:@me archived:false'
+// user-review-requested (NOT review-requested) so ONLY PRs where review was
+// requested from you personally surface here — team-level review requests are
+// excluded (they belong in the Other-PRs panel via team-review-requested).
+export const NEEDS_REVIEW_QUERY = 'is:open is:pr user-review-requested:@me archived:false'
 export const MY_PRS_QUERY = 'is:open is:pr author:@me archived:false'
 
 // Build the owner-scope clause that keeps the team search from spanning all of
@@ -157,17 +160,34 @@ export function labelSearchClause(labels: string[]): string {
   return 'label:' + labels.map((l) => `"${l}"`).join(',')
 }
 
-// The "Team PRs" panel aggregates open PRs across your repos + configured orgs
-// (the owner clause, space-OR'd) carrying any configured label (comma-OR'd). All
-// of that collapses into ONE search — no per-label aliasing, no dedupe needed —
-// which is the lowest query-complexity option (well under GitHub's secondary-
-// rate-limit ceiling). `sort:updated-desc` so the (capped) page is the most
-// recently active PRs. Owner + labels ride in as a search-query variable value
-// (not interpolated into the GraphQL), so there's no injection surface.
-// `draft:false` excludes work-in-progress PRs — the Team panel is an overview of
-// review-ready work, so drafts are noise there (unlike your own My-PRs panel).
-export function teamSearchQuery(ownerClause: string, labels: string[]): string {
-  return `is:open is:pr draft:false archived:false sort:updated-desc ${ownerClause} ${labelSearchClause(labels)}`
+// Extract the org login from an "org/team" slug, so the Other-PRs owner scope
+// always includes the team's org (even if the user didn't list it under
+// teamOrgs). Returns null for a blank or malformed slug.
+export function orgFromTeamSlug(teamSlug: string): string | null {
+  if (!teamSlug.includes('/')) return null
+  const org = teamSlug.split('/')[0]?.trim()
+  return org ? org : null
+}
+
+// The "Other PRs" panel aggregates open PRs across your repos + configured orgs
+// (the owner clause, space-OR'd) optionally narrowed by labels (comma-OR'd) and a
+// single team's review queue. All of that collapses into ONE search — no
+// aliasing, no dedupe needed — the lowest query-complexity option (well under
+// GitHub's secondary-rate-limit ceiling). `sort:updated-desc` so the (capped)
+// page is the most recently active PRs. Owner + labels ride in as a search-query
+// variable value (not interpolated into the GraphQL), so there's no injection
+// surface. `draft:false` excludes WIP PRs — this panel is a review-ready overview
+// (unlike your own My-PRs panel).
+//
+// team: when set, AND `team-review-requested:org/team` into the search for a
+// precise team-review queue. Single team only — GitHub issue/PR search can't
+// reliably OR multiple team-review-requested qualifiers (space-separated
+// qualifiers AND, which would zero the result; there's no working OR for them).
+export function otherSearchQuery(ownerClause: string, labels: string[], team: string): string {
+  const parts = ['is:open is:pr draft:false archived:false sort:updated-desc', ownerClause]
+  if (team.trim()) parts.push(`team-review-requested:${team.trim()}`)
+  if (labels.length > 0) parts.push(labelSearchClause(labels))
+  return parts.join(' ')
 }
 
 // How many results the team search pulls. Smaller than the 50 used for

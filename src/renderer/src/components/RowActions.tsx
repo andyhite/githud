@@ -3,6 +3,7 @@ import { PullRequest } from '@shared/types'
 import { api } from '../api'
 import { computeSnoozeUntil } from './snooze'
 import { HideProps } from './hide-types'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -15,11 +16,23 @@ export function RowActions({
   pr,
   isHidden,
   aiOn,
+  alwaysVisible,
+  className,
   onHide,
   onUnhide,
   onSnooze,
   onReview
-}: { pr: PullRequest; isHidden: boolean; aiOn?: boolean; onReview?: (id: string) => void } & HideProps) {
+}: {
+  pr: PullRequest
+  isHidden: boolean
+  aiOn?: boolean
+  // Table rows reveal the kebab on row hover (the `group`); cards have no hover
+  // affordance (and may be touch), so they pass alwaysVisible to keep it shown.
+  alwaysVisible?: boolean
+  // Size override for the trigger (the card sizes it to the title's line height).
+  className?: string
+  onReview?: (id: string) => void
+} & HideProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -27,7 +40,11 @@ export function RowActions({
           variant="ghost"
           size="icon"
           aria-label="Row actions"
-          className="h-7 w-7 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+          className={cn(
+            'h-7 w-7 data-[state=open]:opacity-100',
+            !alwaysVisible && 'opacity-0 group-hover:opacity-100',
+            className
+          )}
         >
           <MoreVertical className="h-4 w-4" />
         </Button>

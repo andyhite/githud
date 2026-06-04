@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Settings as SettingsType, DEFAULT_SETTINGS, FeedEventKind } from '@shared/types'
 import { api } from '../api'
 import { cn } from '@/lib/utils'
 import { ChipInput } from './ChipInput'
+import { PanelViewsEditor } from './PanelViewsEditor'
 import { useTheme } from './theme-provider'
+import { PanelId } from '@shared/types'
 import {
   Dialog,
   DialogContent,
@@ -41,11 +43,17 @@ const INTERVAL_PRESETS = [
   { label: '5m', value: 300 }
 ]
 
+const PANEL_LABELS: Record<PanelId, string> = {
+  review: 'Needs my review',
+  other: 'Other PRs',
+  mine: 'My open PRs'
+}
+
 type SectionId = 'general' | 'notifications' | 'filters' | 'review' | 'connections' | 'appearance'
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'notifications', label: 'Notifications' },
-  { id: 'filters', label: 'Filters & Team' },
+  { id: 'filters', label: 'Filters & Views' },
   { id: 'review', label: 'Review' },
   { id: 'connections', label: 'Connections' },
   { id: 'appearance', label: 'Appearance' }
@@ -57,7 +65,31 @@ const THEME_OPTIONS = [
   { value: 'system', label: 'System' }
 ] as const
 
-const fieldHelp = 'text-sm text-muted-foreground'
+const fieldHelp = 'text-xs leading-relaxed text-muted-foreground'
+
+// A labeled grouping of related settings. The heading is deliberately styled
+// distinct from (and subordinate to) field Labels — small, uppercase, tracked,
+// muted, with a divider — so the visual hierarchy reads section › field rather
+// than two equal-weight headings.
+function SettingsGroup({
+  title,
+  hint,
+  children
+}: {
+  title: string
+  hint?: string
+  children: ReactNode
+}) {
+  return (
+    <section className="grid gap-4">
+      <div className="grid gap-1 border-b pb-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
+        {hint && <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>}
+      </div>
+      {children}
+    </section>
+  )
+}
 
 export function Settings({ onClose }: { onClose: () => void }) {
   const [section, setSection] = useState<SectionId>('general')
@@ -70,6 +102,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [aiError, setAiError] = useState<string | null>(null)
   const [testStatus, setTestStatus] = useState<string | null>(null)
   const [reviewInstructions, setReviewInstructions] = useState('')
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [cacheStatus, setCacheStatus] = useState<string | null>(null)
   const { theme, setTheme } = useTheme()
 
   useEffect(() => { api.getSettings().then(setSettings) }, [])
@@ -103,6 +137,20 @@ export function Settings({ onClose }: { onClose: () => void }) {
     }
     await api.saveReviewInstructions(reviewInstructions)
     onClose()
+  }
+
+  async function clearAiCache() {
+    await api.clearAiCache()
+    setCacheStatus('AI cache cleared.')
+  }
+
+  // Two-click confirm: the first click arms the button, the second performs the
+  // (irreversible) reset, then reloads so the app re-checks auth and falls back to
+  // the first-run token screen.
+  async function resetCredentials() {
+    if (!confirmReset) { setConfirmReset(true); return }
+    await api.resetCredentials()
+    window.location.reload()
   }
 
   const intervalIsPreset = INTERVAL_PRESETS.some((o) => o.value === settings.refreshIntervalSeconds)
@@ -228,7 +276,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
               <Label className="flex items-center gap-2">
                 <Switch
                   checked={settings.quietHours !== null}
-                  onCheckedChange={(v) => patch({ quietHours: v ? { start: '18:00', end: '09:00' } : null })}
+                  onCheckedChange={(v) => patch({ quietHours: v ? { start: '22:00', end: '08:00' } : null })}
                 />
                 Quiet hours
               </Label>
@@ -253,39 +301,77 @@ export function Settings({ onClose }: { onClose: () => void }) {
               )}
             </TabsContent>
 
-            <TabsContent value="filters" className="grid gap-5 mt-0">
-              <div className="grid gap-2">
-                <ChipInput
-                  id="authors"
-                  label="Excluded authors"
-                  values={settings.excludedAuthors}
-                  onChange={(v) => patch({ excludedAuthors: v })}
-                  placeholder="dependabot[bot], some-user"
-                />
-                <p className={fieldHelp}>Hide PRs, reviews, and activity from these GitHub logins everywhere.</p>
-              </div>
+            <TabsContent value="filters" className="grid gap-7 mt-0">
+              <SettingsGroup title="Filters">
+                <div className="grid gap-2">
+                  <ChipInput
+                    id="authors"
+                    label="Excluded authors"
+                    values={settings.excludedAuthors}
+                    onChange={(v) => patch({ excludedAuthors: v })}
+                    placeholder="dependabot[bot], some-user"
+                  />
+                  <p className={fieldHelp}>Hide PRs, reviews, and activity from these GitHub logins everywhere.</p>
+                </div>
+              </SettingsGroup>
 
-              <div className="grid gap-2">
-                <ChipInput
-                  id="team-labels"
-                  label="Team PR labels"
-                  values={settings.teamLabels}
-                  onChange={(v) => patch({ teamLabels: v })}
-                  placeholder="frontend, backend"
-                />
-                <p className={fieldHelp}>Open PRs carrying any of these labels appear in the Team panel. Empty hides the panel.</p>
-              </div>
+              <SettingsGroup
+                title="Other PRs panel"
+                hint="What the “Other PRs” panel fetches. Configure any of these to enable the panel; leave all empty to hide it."
+              >
+                <div className="grid gap-2">
+                  <ChipInput
+                    id="other-orgs"
+                    label="Organizations"
+                    values={settings.teamOrgs}
+                    onChange={(v) => patch({ teamOrgs: v })}
+                    placeholder="your-org"
+                  />
+                  <p className={fieldHelp}>Scope the search to these orgs. Your own repos are always included.</p>
+                </div>
 
-              <div className="grid gap-2">
-                <ChipInput
-                  id="team-orgs"
-                  label="Team organizations"
-                  values={settings.teamOrgs}
-                  onChange={(v) => patch({ teamOrgs: v })}
-                  placeholder="your-org"
-                />
-                <p className={fieldHelp}>Scope the team search to these orgs. Your own repos are always included.</p>
-              </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="other-team">Team</Label>
+                  <Input
+                    id="other-team"
+                    value={settings.otherTeam}
+                    onChange={(e) => patch({ otherTeam: e.target.value })}
+                    placeholder="org/team"
+                  />
+                  <p className={fieldHelp}>
+                    Surface a team’s review queue (PRs where this team’s review was requested). The team’s org is added to the
+                    scope automatically. Leave blank for none.
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <ChipInput
+                    id="team-labels"
+                    label="Labels"
+                    values={settings.teamLabels}
+                    onChange={(v) => patch({ teamLabels: v })}
+                    placeholder="frontend, backend"
+                  />
+                  <p className={fieldHelp}>Narrow the panel to open PRs carrying any of these labels.</p>
+                </div>
+              </SettingsGroup>
+
+              <SettingsGroup
+                title="Saved views"
+                hint="Named filter combinations for each panel — switch between them from the tags in the panel header. Within a field the values match any (OR); across fields they all apply (AND)."
+              >
+                {(['review', 'other', 'mine'] as const).map((panel) => (
+                  <div key={panel} className="grid gap-2">
+                    <Label>{PANEL_LABELS[panel]}</Label>
+                    <PanelViewsEditor
+                      views={settings.panelViews?.[panel] ?? []}
+                      onChange={(views) =>
+                        patch({ panelViews: { ...DEFAULT_SETTINGS.panelViews, ...settings.panelViews, [panel]: views } })
+                      }
+                    />
+                  </div>
+                ))}
+              </SettingsGroup>
             </TabsContent>
 
             <TabsContent value="review" className="grid gap-3 mt-0">
@@ -308,7 +394,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setReviewInstructions(e.target.value)}
               />
               <p className={fieldHelp}>
-                The system prompt used when drafting PR reviews. Seeded from your andy-code-review skill; edits are saved when you click Save.
+                The system prompt used when drafting PR reviews. Seeded with neutral code-review guidelines — edit it to match your team's voice; edits are saved when you click Save.
               </p>
             </TabsContent>
 
@@ -340,6 +426,35 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 />
                 {aiError && <p className="text-sm text-destructive">{aiError}</p>}
               </div>
+
+              <SettingsGroup title="Maintenance">
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-3">
+                    <Button type="button" variant="outline" className="w-fit" onClick={clearAiCache}>
+                      Clear AI cache
+                    </Button>
+                    {cacheStatus && <p className={fieldHelp}>{cacheStatus}</p>}
+                  </div>
+                  <p className={fieldHelp}>
+                    Deletes locally-cached triage and review results. They're regenerated on demand the next time you open a PR.
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-fit"
+                    onClick={resetCredentials}
+                    onBlur={() => setConfirmReset(false)}
+                  >
+                    {confirmReset ? 'Click again to confirm' : 'Reset credentials'}
+                  </Button>
+                  <p className={fieldHelp}>
+                    Removes your stored GitHub token and Anthropic key from this machine and returns to the setup screen. Your settings are kept.
+                  </p>
+                </div>
+              </SettingsGroup>
             </TabsContent>
 
             <TabsContent value="appearance" className="grid gap-5 mt-0">
