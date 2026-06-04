@@ -260,7 +260,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
               <Label className="flex items-center gap-2">
                 <Switch
                   checked={settings.quietHours !== null}
-                  onCheckedChange={(v) => patch({ quietHours: v ? { start: '18:00', end: '09:00' } : null })}
+                  onCheckedChange={(v) => patch({ quietHours: v ? { start: '22:00', end: '08:00' } : null })}
                 />
                 Quiet hours
               </Label>
@@ -378,7 +378,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 onChange={(e) => setReviewInstructions(e.target.value)}
               />
               <p className={fieldHelp}>
-                The system prompt used when drafting PR reviews. Seeded from your andy-code-review skill; edits are saved when you click Save.
+                The system prompt used when drafting PR reviews. Seeded with neutral code-review guidelines — edit it to match your team's voice; edits are saved when you click Save.
               </p>
             </TabsContent>
 

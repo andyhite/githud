@@ -51,9 +51,10 @@ describe('Settings', () => {
   })
 
   it('shows existing Other-PRs label chips and adds a new one', async () => {
+    window.api.getSettings = vi.fn().mockResolvedValue({ ...DEFAULT_SETTINGS, teamLabels: ['frontend'] })
     render(<Settings onClose={() => {}} />)
     await openSection(/filters/i)
-    expect(screen.getByText('frontend')).toBeInTheDocument() // chip from DEFAULT_SETTINGS.teamLabels
+    expect(screen.getByText('frontend')).toBeInTheDocument() // seeded teamLabels chip
     await userEvent.type(screen.getByLabelText(/^labels$/i), 'backend{Enter}')
     await save()
     expect(window.api.saveSettings).toHaveBeenCalledWith(
@@ -62,6 +63,7 @@ describe('Settings', () => {
   })
 
   it('removes an Other-PRs label chip', async () => {
+    window.api.getSettings = vi.fn().mockResolvedValue({ ...DEFAULT_SETTINGS, teamLabels: ['frontend'] })
     render(<Settings onClose={() => {}} />)
     await openSection(/filters/i)
     await userEvent.click(screen.getByRole('button', { name: /remove frontend/i }))
@@ -124,7 +126,7 @@ describe('Settings', () => {
     expect(window.api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         notifyKinds: expect.arrayContaining(['approved']),
-        quietHours: { start: '18:00', end: '09:00' }
+        quietHours: { start: '22:00', end: '08:00' }
       })
     )
   })

@@ -3,7 +3,7 @@ import { reviewInstructionsFilePath } from '../paths'
 import { DEFAULT_REVIEW_INSTRUCTIONS } from './review-instructions-default'
 
 // The live review-voice system prompt. App-owned and user-editable; falls back
-// to the vendored snapshot of the andy-code-review skill until the user edits it.
+// to the neutral built-in default until the user edits it.
 export function loadReviewInstructions(): string {
   const path = reviewInstructionsFilePath()
   if (!existsSync(path)) return DEFAULT_REVIEW_INSTRUCTIONS

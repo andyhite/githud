@@ -163,7 +163,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chartsCollapsed: false,
   refreshIntervalSeconds: 30,
   apiBudgetPercent: 80,
-  teamLabels: ['frontend'],
+  teamLabels: [],
   teamOrgs: [],
   otherTeam: '',
   panelViews: { review: [], other: [], mine: [] }
