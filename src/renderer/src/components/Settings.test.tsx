@@ -50,18 +50,18 @@ describe('Settings', () => {
     )
   })
 
-  it('shows existing team-label chips and adds a new one', async () => {
+  it('shows existing Other-PRs label chips and adds a new one', async () => {
     render(<Settings onClose={() => {}} />)
     await openSection(/filters/i)
     expect(screen.getByText('frontend')).toBeInTheDocument() // chip from DEFAULT_SETTINGS.teamLabels
-    await userEvent.type(screen.getByLabelText(/team pr labels/i), 'backend{Enter}')
+    await userEvent.type(screen.getByLabelText(/^labels$/i), 'backend{Enter}')
     await save()
     expect(window.api.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ teamLabels: ['frontend', 'backend'] })
     )
   })
 
-  it('removes a team-label chip', async () => {
+  it('removes an Other-PRs label chip', async () => {
     render(<Settings onClose={() => {}} />)
     await openSection(/filters/i)
     await userEvent.click(screen.getByRole('button', { name: /remove frontend/i }))

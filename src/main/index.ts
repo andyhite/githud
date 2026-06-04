@@ -102,6 +102,10 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    // Floor for the single-column/card layout — below this the cards, tab bar,
+    // and top bar stop laying out sensibly, so don't let the window get smaller.
+    minWidth: 440,
+    minHeight: 520,
     title: 'githud',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

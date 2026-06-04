@@ -48,6 +48,19 @@ describe('normalizePullRequests', () => {
     expect(pr.reviewers).toEqual([{ login: 'me', avatarUrl: 'av-me' }])
   })
 
+  it('keeps team review-requests out of reviewers (users only)', () => {
+    const node = prNode({
+      reviewRequests: {
+        nodes: [
+          { requestedReviewer: { login: 'me', avatarUrl: 'av-me' } },
+          { requestedReviewer: { slug: 'frontend' } } // a team — no login, ignored
+        ]
+      }
+    })
+    const [pr] = normalizePullRequests([node], { now, staleThresholdMs: staleMs })
+    expect(pr.reviewers).toEqual([{ login: 'me', avatarUrl: 'av-me' }])
+  })
+
   it('extracts label names (empty when none / missing)', () => {
     const [pr] = normalizePullRequests([prNode({ labels: { nodes: [{ name: 'frontend' }, { name: 'bug' }] } })], { now, staleThresholdMs: staleMs })
     expect(pr.labels).toEqual(['frontend', 'bug'])

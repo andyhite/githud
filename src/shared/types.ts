@@ -28,7 +28,7 @@ export interface PullRequest {
   deletions: number
   changedFiles: number
   unresolvedThreads: number // open review threads, excluding excluded-author threads
-  labels: string[] // label names; powers the team panel's label aggregation + filter chips
+  labels: string[] // label names; powers panel label aggregation + view filtering
   updatedAt: string
   isStale: boolean
   isDraft: boolean
@@ -79,8 +79,9 @@ export interface DashboardSnapshot {
   viewer: User
   needsReview: PullRequest[]
   myPullRequests: PullRequest[]
-  // Open PRs carrying any of the user-configured `teamLabels` (a team overview).
-  // Deduped across labels; NOT part of event derivation or history sampling.
+  // The "Other PRs" panel source: open PRs in your owner scope (orgs + team
+  // orgs) optionally narrowed by labels / a single team's review queue. NOT part
+  // of event derivation or history sampling. (Field name kept for back-compat.)
   teamPullRequests: PullRequest[]
   events: FeedEvent[]
   hiddenPrIds: string[]
@@ -91,6 +92,26 @@ export interface DashboardSnapshot {
   // poll loop is waiting for the reset) vs 'offline' (couldn't reach GitHub —
   // retrying). Lets the TopBar word the status honestly. Absent on success.
   errorKind?: 'rate_limit' | 'offline'
+}
+
+// The three PR panels. Each has a fixed "source" (what it fetches) but a
+// user-configurable set of named client-side views layered on top.
+export type PanelId = 'review' | 'other' | 'mine'
+
+// A client-side filter applied to a panel's already-fetched PRs. Within a
+// dimension the values are OR'd (any match); across dimensions they AND. An
+// empty/absent dimension imposes no constraint.
+export interface PanelViewFilter {
+  labels?: string[] // PR carries ANY of these label names
+  authors?: string[] // PR authored by ANY of these logins
+  repos?: string[] // PR in ANY of these repos ("owner/name")
+}
+
+// A named filter combination, surfaced as a switchable tag in the panel header.
+export interface PanelView {
+  id: string
+  name: string
+  filter: PanelViewFilter
 }
 
 export interface Settings {
@@ -112,13 +133,24 @@ export interface Settings {
   // stops polling until the reset. The rest is left in reserve (the budget is
   // shared per-user across all your tokens/apps). 10–100; 100 = use it all.
   apiBudgetPercent: number
-  // Labels aggregated into the "Team PRs" panel (open PRs carrying any of these).
-  // Empty = the panel is hidden. Also rendered as toggle chips in the panel header.
+  // --- "Other PRs" panel source (what the panel fetches; server-side) ---
+  // Labels scoping the Other-PRs search (open PRs carrying any of these). Empty =
+  // no label constraint. Combined with teamOrgs/otherTeams to define the source.
   teamLabels: string[]
-  // Orgs to scope the Team PRs search to (besides your own repos, which are always
-  // included). Without this the search would span all of GitHub. org logins only —
-  // your personal repos come from the viewer login automatically.
+  // Orgs to scope the Other-PRs search to (besides your own repos, always
+  // included). Without an owner scope the search would span all of GitHub, so the
+  // poller skips it entirely when there's nothing to scope to. org logins only.
   teamOrgs: string[]
+  // A single team slug ("org/team") whose review queue feeds the Other-PRs panel
+  // via precise `team-review-requested:org/team`. The team's org is auto-added to
+  // the owner scope. '' = no team filter. (Single team only — GitHub issue/PR
+  // search can't reliably OR multiple team-review-requested qualifiers.)
+  otherTeam: string
+  // --- Named client-side views per panel (the header tag switcher) ---
+  // (Filters by label/author/repo — team filtering is the source-level otherTeam.)
+  // Each panel's list of saved filter combinations. The active one is transient
+  // renderer state (defaults to "All" = no filter); only the definitions persist.
+  panelViews: Record<PanelId, PanelView[]>
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -132,7 +164,9 @@ export const DEFAULT_SETTINGS: Settings = {
   refreshIntervalSeconds: 30,
   apiBudgetPercent: 80,
   teamLabels: ['frontend'],
-  teamOrgs: []
+  teamOrgs: [],
+  otherTeam: '',
+  panelViews: { review: [], other: [], mine: [] }
 }
 
 export interface NotificationSpec {

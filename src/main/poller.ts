@@ -1,6 +1,6 @@
 import { Octokit } from 'octokit'
 import { DashboardSnapshot, Settings } from '@shared/types'
-import { buildDashboardQuery, teamSearchQuery, ownerScopeClause, NEEDS_REVIEW_QUERY, MY_PRS_QUERY } from './github/queries'
+import { buildDashboardQuery, otherSearchQuery, ownerScopeClause, orgFromTeamSlug, NEEDS_REVIEW_QUERY, MY_PRS_QUERY } from './github/queries'
 import { normalizePullRequests } from './github/normalize-prs'
 import { toPrState, PRState } from './github/pr-state'
 import { deriveEvents } from './github/derive-events'
@@ -36,13 +36,22 @@ export class Poller {
     // Team search is scoped to your repos + configured orgs (never global). With
     // nothing to scope to (no viewer login yet AND no orgs), skip it rather than
     // search all of GitHub. needsReview/mine are personal (@me) and unscoped.
-    const ownerClause = ownerScopeClause(viewerLogin, settings.teamOrgs ?? [])
+    // The "Other PRs" panel source. Owner scope = configured orgs PLUS the org of
+    // a configured team (so its review queue is always in range), on top of your
+    // own repos (the viewer login). Labels + the single team narrow it further.
+    const otherTeam = settings.otherTeam ?? ''
+    const teamOrg = orgFromTeamSlug(otherTeam)
+    const ownerScope = [...(settings.teamOrgs ?? []), ...(teamOrg ? [teamOrg] : [])]
+    const ownerClause = ownerScopeClause(viewerLogin, ownerScope)
     const teamLabels = settings.teamLabels ?? []
-    // One team search covers every owner (space-OR'd) × every label (comma-OR'd);
-    // run it only when there's both something to scope to and a label to match.
-    const includeTeam = ownerClause !== null && teamLabels.length > 0
+    // The panel is opt-in: run the extra search only once the user has configured
+    // at least one Other-source dimension (orgs / team / labels) AND there's an
+    // owner scope to bound it (else it would span all of GitHub). This keeps the
+    // baseline two-alias query cheap for users who don't use the panel.
+    const hasOtherConfig = (settings.teamOrgs?.length ?? 0) > 0 || otherTeam.trim() !== '' || teamLabels.length > 0
+    const includeTeam = ownerClause !== null && hasOtherConfig
     const variables: Record<string, string> = { needsReview: NEEDS_REVIEW_QUERY, mine: MY_PRS_QUERY }
-    if (includeTeam) variables.team = teamSearchQuery(ownerClause!, teamLabels)
+    if (includeTeam) variables.team = otherSearchQuery(ownerClause!, teamLabels, otherTeam)
 
     let data: any
     try {

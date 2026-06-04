@@ -2,6 +2,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Container-HEIGHT query variants for the blank slate, so it scales with how
+   TALL its panel is (not how wide). These only match when the nearest container
+   is a *size* container (container-type: size) — which the Panel body becomes at
+   lg via `lg:[container-type:size]`. Below lg the body is an inline-size
+   container and these never match, so the blank slate keeps its compact base
+   (which is fine — narrow panels grow to their content, so height never pinches). */
+@custom-variant tall-sm (@container (height >= 14rem));
+@custom-variant tall-md (@container (height >= 22rem));
+@custom-variant tall-lg (@container (height >= 32rem));
+
 /* Base16 Tomorrow (light) — sister palette to Tomorrow Night below.
    https://github.com/chriskempson/base16 */
 :root {

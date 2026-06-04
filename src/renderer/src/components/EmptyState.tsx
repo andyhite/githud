@@ -35,18 +35,25 @@ const VARIANTS: Record<Variant, { celebrate: boolean; icon: LucideIcon; title: s
 
 export function EmptyState({ variant }: { variant: Variant }) {
   const { celebrate, icon: Icon, title, subtitle } = VARIANTS[variant]
+  // flex-1 centers it vertically inside the Panel body (a flex column). The tall-*
+  // steps scale the blank slate WITH THE PANEL'S HEIGHT (container-height queries —
+  // see tailwind.css), starting from a compact base so it never overflows a short
+  // panel; min-h-0 + overflow-hidden guarantee it clips (centered) rather than
+  // forcing a scrollbar if a panel is shorter than even the compact base.
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center gap-2 px-5 py-6">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 overflow-hidden px-4 py-3 text-center tall-sm:gap-2 tall-md:py-6">
       <span
         className={cn(
-          'grid place-items-center rounded-full h-12 w-12',
+          'grid shrink-0 place-items-center rounded-full h-9 w-9 tall-sm:h-12 tall-sm:w-12 tall-lg:h-16 tall-lg:w-16',
           celebrate ? 'bg-sev-success/10 text-sev-success' : 'bg-muted text-muted-foreground'
         )}
       >
-        <Icon className="h-6 w-6" aria-hidden="true" />
+        <Icon className="h-4 w-4 tall-sm:h-6 tall-sm:w-6 tall-lg:h-8 tall-lg:w-8" aria-hidden="true" />
       </span>
-      <p className="text-sm font-semibold text-card-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground max-w-[32ch]">{subtitle}</p>
+      <p className="text-sm font-semibold text-card-foreground tall-lg:text-base">{title}</p>
+      {/* Fixed width + text-balance so the sentence wraps at the same point
+          regardless of panel size and the two lines come out roughly equal. */}
+      <p className="max-w-[30ch] text-balance text-xs text-muted-foreground">{subtitle}</p>
     </div>
   )
 }

@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { buildDashboardQuery, teamSearchQuery, ownerScopeClause, labelSearchClause } from './queries'
+import {
+  buildDashboardQuery,
+  otherSearchQuery,
+  ownerScopeClause,
+  labelSearchClause,
+  orgFromTeamSlug,
+  NEEDS_REVIEW_QUERY
+} from './queries'
 
 describe('ownerScopeClause', () => {
   it('always includes the viewer’s own repos', () => {
@@ -45,21 +52,58 @@ describe('labelSearchClause', () => {
   })
 })
 
-describe('teamSearchQuery', () => {
+describe('NEEDS_REVIEW_QUERY', () => {
+  // user-review-requested matches ONLY PRs where review was requested from you
+  // personally; review-requested also matches team requests (the bug we fixed).
+  it('uses user-review-requested (individual), not review-requested (includes teams)', () => {
+    expect(NEEDS_REVIEW_QUERY).toContain('user-review-requested:@me')
+    expect(NEEDS_REVIEW_QUERY).not.toMatch(/(?<!user-)review-requested/)
+  })
+})
+
+describe('orgFromTeamSlug', () => {
+  it('extracts the org from an "org/team" slug', () => {
+    expect(orgFromTeamSlug('acme/frontend')).toBe('acme')
+  })
+
+  it('returns null for a blank or malformed slug (no slash)', () => {
+    expect(orgFromTeamSlug('nope')).toBeNull()
+    expect(orgFromTeamSlug('')).toBeNull()
+    expect(orgFromTeamSlug('  ')).toBeNull()
+  })
+})
+
+describe('otherSearchQuery', () => {
   it('builds one open, non-draft PR search scoped to the owner clause + all labels, most-recent first', () => {
-    expect(teamSearchQuery('user:me org:acme', ['frontend', 'bug'])).toBe(
+    expect(otherSearchQuery('user:me org:acme', ['frontend', 'bug'], '')).toBe(
       'is:open is:pr draft:false archived:false sort:updated-desc user:me org:acme label:"frontend","bug"'
     )
   })
 
   it('handles a single owner and a single label', () => {
-    expect(teamSearchQuery('org:acme', ['frontend'])).toBe(
+    expect(otherSearchQuery('org:acme', ['frontend'], '')).toBe(
       'is:open is:pr draft:false archived:false sort:updated-desc org:acme label:"frontend"'
     )
   })
 
-  it('excludes drafts (draft:false) so work-in-progress PRs never reach the Team panel', () => {
-    expect(teamSearchQuery('user:me', ['x'])).toContain('draft:false')
+  it('omits the label clause when there are no labels', () => {
+    expect(otherSearchQuery('org:acme', [], '')).toBe(
+      'is:open is:pr draft:false archived:false sort:updated-desc org:acme'
+    )
+  })
+
+  it('ANDs team-review-requested when a team is configured', () => {
+    expect(otherSearchQuery('user:me', [], 'acme/frontend')).toBe(
+      'is:open is:pr draft:false archived:false sort:updated-desc user:me team-review-requested:acme/frontend'
+    )
+  })
+
+  it('omits the team clause when no team is configured', () => {
+    expect(otherSearchQuery('org:acme', [], '')).not.toContain('team-review-requested')
+  })
+
+  it('excludes drafts (draft:false) so work-in-progress PRs never reach the panel', () => {
+    expect(otherSearchQuery('user:me', ['x'], '')).toContain('draft:false')
   })
 })
 

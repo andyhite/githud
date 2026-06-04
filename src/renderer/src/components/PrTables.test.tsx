@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PrTable, type PrColumn } from './PrTable'
 import { ShowHiddenToggle } from './RowActions'
-import { LabelFilterChips } from './LabelFilterChips'
+import { PanelViewTabs } from './PanelViewTabs'
 import type { PullRequest } from '@shared/types'
 
 // Column configs mirroring how App.tsx wires each panel, so the assertions below
@@ -166,19 +166,80 @@ describe('PrTable (team config)', () => {
   })
 })
 
-describe('LabelFilterChips', () => {
-  it('renders nothing with no labels', () => {
-    const { container } = render(<LabelFilterChips labels={[]} muted={[]} onToggle={vi.fn()} />)
+describe('PrTable (card layout on narrow viewports)', () => {
+  // Force the narrow viewport so useNarrowViewport() flips to the card layout.
+  // It reads window.matchMedia; jsdom doesn't implement it, so we stub a matching
+  // query here and remove it afterwards (other suites run with it absent → table).
+  beforeEach(() => {
+    window.matchMedia = vi.fn().mockImplementation((q: string) => ({
+      matches: true,
+      media: q,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn()
+    })) as unknown as typeof window.matchMedia
+  })
+  afterEach(() => {
+    delete (window as unknown as { matchMedia?: unknown }).matchMedia
+  })
+
+  it('renders cards (no table) with the PR title, status, and diff when narrow', () => {
+    const { container } = render(<PrTable items={[pr()]} columns={REVIEW_COLS} emptyVariant="review" showAuthor />)
+    expect(container.querySelector('table')).toBeNull()
+    expect(screen.getByText('Fix nav focus trap')).toBeInTheDocument()
+    expect(screen.getByText(/changes requested/i)).toBeInTheDocument()
+    expect(screen.getByText('+40')).toBeInTheDocument()
+  })
+
+  it('shows the "Waiting on" reviewer line for columns that include reviewers', () => {
+    render(
+      <PrTable
+        items={[pr({ reviewers: [{ login: 'bob', avatarUrl: '' }] })]}
+        columns={MINE_COLS}
+        emptyVariant="mine"
+      />
+    )
+    expect(screen.getByText(/waiting on/i)).toBeInTheDocument()
+    expect(screen.getByText('@bob')).toBeInTheDocument()
+  })
+
+  it('still exposes row actions (hide) in card layout', async () => {
+    const onHide = vi.fn()
+    render(<PrTable items={[pr({ id: 'p1' })]} columns={REVIEW_COLS} emptyVariant="review" hiddenIds={[]} onHide={onHide} onUnhide={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: /row actions/i }))
+    await userEvent.click(screen.getByRole('menuitem', { name: /^hide$/i }))
+    expect(onHide).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+  })
+})
+
+describe('PanelViewTabs', () => {
+  const views = [
+    { id: 'v1', name: 'Frontend', filter: { labels: ['frontend'] } },
+    { id: 'v2', name: 'My team', filter: { teams: ['acme/web'] } }
+  ]
+
+  it('renders nothing when no views are configured', () => {
+    const { container } = render(<PanelViewTabs views={[]} activeId={null} onSelect={vi.fn()} />)
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('marks active chips pressed, muted chips unpressed, and toggles on click', async () => {
-    const onToggle = vi.fn()
-    render(<LabelFilterChips labels={['frontend', 'backend']} muted={['backend']} onToggle={onToggle} />)
-    expect(screen.getByRole('button', { name: 'frontend' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: 'backend' })).toHaveAttribute('aria-pressed', 'false')
-    await userEvent.click(screen.getByRole('button', { name: 'frontend' }))
-    expect(onToggle).toHaveBeenCalledWith('frontend')
+  it('renders an All tag plus one per view, marking the active one pressed', () => {
+    render(<PanelViewTabs views={views} activeId="v1" onSelect={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Frontend' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'My team' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('selects a view on click and clears back to All (null)', async () => {
+    const onSelect = vi.fn()
+    render(<PanelViewTabs views={views} activeId="v1" onSelect={onSelect} />)
+    await userEvent.click(screen.getByRole('button', { name: 'My team' }))
+    expect(onSelect).toHaveBeenCalledWith('v2')
+    await userEvent.click(screen.getByRole('button', { name: 'All' }))
+    expect(onSelect).toHaveBeenCalledWith(null)
   })
 })
 
