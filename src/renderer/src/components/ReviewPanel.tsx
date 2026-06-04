@@ -63,6 +63,7 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
   function load() {
     setResult(null)
     setError(null)
+    setPostError(null)
     api.getReview(prId).then(hydrate).catch((e) => setError(String(e?.message ?? e)))
   }
   useEffect(load, [prId])
