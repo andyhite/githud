@@ -32,7 +32,7 @@ loop) — see the AI section below.
 
 ```
 src/
-  shared/types.ts          # DashboardSnapshot (now includes `history: DailyMetric[]` + `teamPullRequests: PullRequest[]`), PullRequest (now includes `labels: string[]`), FeedEvent, Settings (now includes `chartsCollapsed: boolean` + `teamLabels: string[]` + `teamOrgs: string[]` + `refreshIntervalSeconds: number` + `apiBudgetPercent: number`), GithudApi, DailyMetric, + AI types (TriageVerdict/DigestResult/ReviewResult) — the contract
+  shared/types.ts          # DashboardSnapshot (now includes `history: DailyMetric[]` + `teamPullRequests: PullRequest[]`), PullRequest (now includes `labels: string[]`), FeedEvent, Settings (now includes `chartsCollapsed: boolean` + `teamLabels: string[]` + `teamOrgs: string[]` + `refreshIntervalSeconds: number` + `apiBudgetPercent: number`), GithudApi (includes `postReview`, `getReviewInstructions`, `saveReviewInstructions`, `resetReviewInstructions`), DailyMetric, + AI types (TriageVerdict/DigestResult/ReviewResult/ReviewFinding — ReviewFinding now carries anchor fields: path/line/side) — the contract
   shared/size.ts           # sizeBucket(diffstat) -> S/M/L/XL  (pure; used by both the size column and the AI triage)
   shared/poll-schedule.ts  # nextPollDelay(rateLimit, now, baseMs?, reserveFraction?) + formatInterval  (pure, tested; adaptive poll backoff, used by the main loop AND the TopBar interval display). Spreads only the SPENDABLE budget (remaining minus a reserve) over the window so githud never drains the per-user/shared GraphQL budget to zero; paces against the SMOOTHED cost (rateLimit.avgCost, an EWMA the poller maintains) not the last single sample; floors at baseMs (default BASE_POLL_MS=60s ← Settings.refreshIntervalSeconds); reserve defaults to RESERVE_FRACTION=20% ← (1 - Settings.apiBudgetPercent/100).
   main/
@@ -55,6 +55,8 @@ src/
       filter-events.ts     # author denylist: isExcludedAuthor + filterEvents + applyAuthorFilters (pure); shared by events, PR lists, and thread counts
       rate-limit.ts        # parseRateLimitError(err, now) -> RateLimit from Octokit error headers  (pure, tested; feeds the adaptive backoff on quota errors)
       fetch-diff.ts        # REST PR meta + .diff (capped) for the AI layer  (glue)
+      parse-diff-anchors.ts  # unified diff → valid review-comment anchors per file (pure, tested)
+      post-review.ts       # buildReviewRequest/classifyPostError (pure, tested) + postReview Octokit glue; creates the GitHub PR review from a DraftReview
     ai/                    # opt-in; all glue EXCEPT size/verdict (pure, tested)
       key-store.ts         # Anthropic key encrypted via safeStorage (mirrors token-store)
       client.ts            # Anthropic factory + validateAiKey; AI_MODEL = 'claude-opus-4-8'
@@ -62,7 +64,10 @@ src/
       verdict.ts           # (size,risk)→TriageLabel  (pure, tested; size bucket lives in src/shared/size.ts)
       triage.ts            # one cached Claude risk call -> TriageVerdict
       digest.ts            # "catch me up" full standup + buildDeltaDigest (brief since-last-focus delta); eventsSince/deltaPayload are pure/tested
-      review.ts            # first-pass advisory review of a diff
+      review.ts            # draft review: fetches diff, calls Claude using the EDITABLE system prompt from `ai/review-instructions-store.ts` (seeded from `ai/review-instructions-default.ts`, a vendored snapshot of the andy-code-review skill), snaps findings to real diff lines via `anchor-findings.ts`, posts via `github/post-review.ts`; modal lets the user edit before posting; never auto-posted
+      anchor-findings.ts   # best-effort nearest-line snapping of AI findings to diff anchors  (pure, tested)
+      review-instructions-store.ts  # editable review-voice prompt persisted on disk; falls back to review-instructions-default  (fs glue)
+      review-instructions-default.ts  # vendored snapshot of the andy-code-review skill — the seed default; don't hand-edit
   preload/index.ts         # contextBridge exposing window.api (typed as GithudApi)
   renderer/src/            # UI is Tailwind v4 + shadcn/ui (Zinc base, light+dark) + recharts. NO hand-rolled CSS — everything lives in styles/tailwind.css (design tokens + a `.markdown` block + base/scrollbar rules). See the redesign spec/plan dated 2026-06-03.
     styles/tailwind.css    # the ONLY stylesheet: `@import "tailwindcss"`, Zinc tokens + semantic --sev-{info,success,failure,mention,effort} (defined for :root AND .dark, mapped under `@theme inline` as --color-sev-*), the @layer base border reset (see gotcha), `.markdown` rules, scrollbar polish
@@ -70,7 +75,7 @@ src/
     App.tsx                # auth gate -> TokenSetup or Dashboard; thin composition of <Panel>s over the orchestration hooks (filter+sort+verdicts+selection)
     api.ts                 # lazy Proxy over window.api (see caveat below) — all components call `api`, not `window.api`
     components/theme-provider.tsx  # ThemeProvider/useTheme: toggles .dark on <html>, persisted in localStorage ('githud-theme'), defaultTheme dark. Renderer-only — NOT in Settings/shared types. (index.html ships `<html class="dark">` for a dark first paint.)
-    components/ui/          # vendored shadcn primitives (button/card/badge/dialog/dropdown-menu/table/switch/slider/toggle-group/tabs/input/label/command/checkbox) — generated by the CLI; don't hand-edit
+    components/ui/          # vendored shadcn primitives (button/card/badge/dialog/dropdown-menu/table/switch/slider/toggle-group/tabs/input/label/command/checkbox/textarea) — generated by the CLI; don't hand-edit
     hooks/useDashboard.ts  # TanStack Query: 30s refetch + onSnapshot push + cached seed
     hooks/useDigest.ts     # subscribes to main's 'digest' push (brief on-focus delta digest)
     hooks/{useHideActions,useReadState,useTriageVerdicts,useKeyboardNav,useSettings}.ts  # App orchestration extracted into focused hooks (hide/snooze, mark-read, lazy triage, j/k/⌘K nav, settings load+charts-toggle)
@@ -119,7 +124,7 @@ Query updates. The same GraphQL call also runs one team search (all configured o
 - **Triage verdict** = deterministic `size` (diffstat → S/M/L/XL, pure/tested) combined with an AI `risk` read via `verdict.ts` (pure/tested) → one of `quick_approve | careful_read | likely_changes | big_effort`. The renderer lazy-loads a verdict per visible needs-review PR **once per session** (a `useRef` set guards against refetch storms; a null result is not retried).
 - **Structured output** uses `output_config: { effort, format: { type: 'json_schema', schema } }` and prompt-caches the system prompt (`cache_control: ephemeral`). The SDK's typed surface doesn't yet cover `output_config`/`cache_control` in all positions, so those `messages.create` calls carry intentional `as any` casts — keep them.
 - **Model id is a single constant** `AI_MODEL = 'claude-opus-4-8'` in `ai/client.ts`. Don't scatter model strings. Use the `claude-api` skill when touching SDK code.
-- `size`/`verdict` are TDD'd; the Claude calls (`triage`/`digest`/`review`) are glue (manual smoke test). There's no key-rotation UI yet (overwrite only) — backlog.
+- `size`/`verdict`/`anchor-findings` and `github/parse-diff-anchors`/`post-review` (builder + error classifier) are TDD'd; the Claude calls (`triage`/`digest`/`review`) are glue (manual smoke test). There's no key-rotation UI yet (overwrite only) — backlog.
 
 ## Conventions & patterns
 
@@ -150,8 +155,12 @@ Query updates. The same GraphQL call also runs one team search (all configured o
 
 v1 is read-only and single-account. **Built** (was deferred): tray icon + dock
 badge + launch-at-login; keyboard nav + command palette; the opt-in AI layer.
-Still deferred (don't add without a reason): inline approve/comment/merge,
-per-repo watch lists, GitHub Enterprise / multi-account, assigned-issues panel,
-auto-update / code signing. AI backlog: a key-rotation/removal UI, and the M14
-secondary helpers (thread TL;DR, mention triage, standup generator) — see the
-plan in `docs/superpowers/plans/`.
+**Built (deliberate write exception):** posting a single PR review (summary +
+inline comments; event-selectable Comment/Approve/Request-changes) from the
+**Draft review** flow on needs-review PRs — the app's ONLY write path; otherwise
+still read-only. Generation and posting are on-demand only (never on the poll loop).
+Still deferred (don't add without a reason): per-repo watch lists, GitHub
+Enterprise / multi-account, assigned-issues panel, auto-update / code signing.
+AI backlog: a key-rotation/removal UI, and the M14 secondary helpers (thread
+TL;DR, mention triage, standup generator) — see the plan in
+`docs/superpowers/plans/`.

@@ -171,11 +171,19 @@ export interface DigestResult {
   eventCount?: number
 }
 
+export type ReviewSide = 'LEFT' | 'RIGHT'
+
 export interface ReviewFinding {
   severity: 'note' | 'concern' | 'blocker'
   file: string
   line?: number
+  side?: ReviewSide
   note: string
+  // Filled by anchor-findings in main before the result reaches the renderer:
+  resolvedLine?: number
+  resolvedSide?: ReviewSide
+  anchored?: boolean // false => no valid anchor in the diff; fold into summary
+  snappedFrom?: number // set only when resolvedLine differs from the model's line
 }
 
 export interface ReviewResult {
@@ -185,6 +193,23 @@ export interface ReviewResult {
   summary: string
   generatedAt: string
 }
+
+export interface PostReviewComment {
+  path: string
+  line: number
+  side: ReviewSide
+  body: string
+}
+
+export interface PostReviewPayload {
+  body: string
+  event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES'
+  comments: PostReviewComment[]
+}
+
+export type PostReviewResult =
+  | { ok: true; url: string }
+  | { ok: false; kind: 'forbidden' | 'auth' | 'network' | 'unprocessable' | 'unknown'; message: string }
 
 export interface AiStatus {
   hasKey: boolean
@@ -219,4 +244,8 @@ export interface GithudApi {
   getTriage(prId: string): Promise<TriageVerdict | null>
   getDigest(): Promise<DigestResult>
   getReview(prId: string): Promise<ReviewResult>
+  postReview(prId: string, payload: PostReviewPayload): Promise<PostReviewResult>
+  getReviewInstructions(): Promise<string>
+  saveReviewInstructions(text: string): Promise<void>
+  resetReviewInstructions(): Promise<string>
 }

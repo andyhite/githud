@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { GithudApi, DashboardSnapshot, Settings, DigestResult } from '../shared/types'
+import type { GithudApi, DashboardSnapshot, Settings, DigestResult, PostReviewPayload } from '../shared/types'
 
 const api: GithudApi = {
   getSnapshot: () => ipcRenderer.invoke('getSnapshot'),
@@ -30,7 +30,11 @@ const api: GithudApi = {
   saveAiKey: (key) => ipcRenderer.invoke('saveAiKey', key),
   getTriage: (prId) => ipcRenderer.invoke('getTriage', prId),
   getDigest: () => ipcRenderer.invoke('getDigest'),
-  getReview: (prId) => ipcRenderer.invoke('getReview', prId)
+  getReview: (prId) => ipcRenderer.invoke('getReview', prId),
+  postReview: (prId: string, payload: PostReviewPayload) => ipcRenderer.invoke('postReview', prId, payload),
+  getReviewInstructions: () => ipcRenderer.invoke('getReviewInstructions'),
+  saveReviewInstructions: (text: string) => ipcRenderer.invoke('saveReviewInstructions', text),
+  resetReviewInstructions: () => ipcRenderer.invoke('resetReviewInstructions')
 }
 
 contextBridge.exposeInMainWorld('api', api)
