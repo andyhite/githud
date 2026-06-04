@@ -269,6 +269,10 @@ export interface GithudApi {
   onDigest(cb: (digest: DigestResult) => void): () => void
   getAuthStatus(): Promise<AuthStatus>
   saveToken(token: string): Promise<{ ok: boolean; login?: string; error?: string }>
+  // Removes both stored secrets (GitHub token + Anthropic key) from this machine,
+  // stops polling, and clears in-memory state. The renderer reloads back to the
+  // first-run token screen afterward.
+  resetCredentials(): Promise<{ ok: boolean }>
   getSettings(): Promise<Settings>
   saveSettings(settings: Settings): Promise<Settings>
   openExternal(url: string): Promise<void>
@@ -287,6 +291,8 @@ export interface GithudApi {
   // M10–M14 (AI; all reject if no key configured)
   getAiStatus(): Promise<AiStatus>
   saveAiKey(key: string): Promise<{ ok: boolean; error?: string }>
+  // Deletes the on-disk AI result cache (triage + review). Next AI call recomputes.
+  clearAiCache(): Promise<void>
   getTriage(prId: string): Promise<TriageVerdict | null>
   getDigest(): Promise<DigestResult>
   getReview(prId: string, force?: boolean): Promise<ReviewResult>

@@ -122,8 +122,10 @@ It contains your encrypted token (`token.enc`) and Anthropic key, your
 `settings.json`, the last dashboard snapshot (for instant cold-start), the derived
 activity/event store, history samples, and the AI result cache. Secrets are
 encrypted with the OS keychain via Electron `safeStorage` and are **not portable** —
-you'll re-authenticate on a new machine or after a reinstall. Delete `token.enc`
-to be re-prompted.
+you'll re-authenticate on a new machine or after a reinstall. *Settings →
+Connections* has **Reset credentials** (removes the stored token and AI key and
+returns to the setup screen) and **Clear AI cache**; you can also delete
+`token.enc` directly to be re-prompted.
 
 ## Privacy
 

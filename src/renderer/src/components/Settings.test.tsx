@@ -17,6 +17,8 @@ beforeEach(() => {
     saveAiKey: vi.fn().mockResolvedValue({ ok: true }),
     getAuthStatus: vi.fn().mockResolvedValue({ hasToken: true, login: 'me' }),
     saveToken: vi.fn().mockResolvedValue({ ok: true, login: 'me' }),
+    resetCredentials: vi.fn().mockResolvedValue({ ok: true }),
+    clearAiCache: vi.fn().mockResolvedValue(undefined),
     getReviewInstructions: vi.fn().mockResolvedValue(''),
     saveReviewInstructions: vi.fn().mockResolvedValue(undefined),
     resetReviewInstructions: vi.fn().mockResolvedValue('')
@@ -129,5 +131,27 @@ describe('Settings', () => {
         quietHours: { start: '22:00', end: '08:00' }
       })
     )
+  })
+
+  it('clears the AI cache from Connections', async () => {
+    render(<Settings onClose={() => {}} />)
+    await openSection(/connections/i)
+    await userEvent.click(screen.getByRole('button', { name: /clear ai cache/i }))
+    expect(window.api.clearAiCache).toHaveBeenCalled()
+    expect(await screen.findByText(/ai cache cleared/i)).toBeInTheDocument()
+  })
+
+  it('resets credentials only after a confirm click, then reloads', async () => {
+    const reload = vi.fn()
+    Object.defineProperty(window, 'location', { configurable: true, value: { reload } })
+    render(<Settings onClose={() => {}} />)
+    await openSection(/connections/i)
+    // First click only arms the confirm — nothing destructive happens yet.
+    await userEvent.click(screen.getByRole('button', { name: /^reset credentials$/i }))
+    expect(window.api.resetCredentials).not.toHaveBeenCalled()
+    // Second click confirms.
+    await userEvent.click(screen.getByRole('button', { name: /click again to confirm/i }))
+    expect(window.api.resetCredentials).toHaveBeenCalled()
+    expect(reload).toHaveBeenCalled()
   })
 })

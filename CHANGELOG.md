@@ -11,6 +11,9 @@ All notable changes to this project are documented here. The format is based on
   `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates, and CI + release
   GitHub Actions workflows.
 - `electron-builder` configuration for macOS, Windows, and Linux targets.
+- Settings → Connections "Maintenance" controls: **Clear AI cache** and a
+  two-click **Reset credentials** (removes the stored GitHub token and Anthropic
+  key from this machine and returns to the setup screen).
 
 ### Changed
 - Neutralized the default AI review prompt (removed the original author's personal

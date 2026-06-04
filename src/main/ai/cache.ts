@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs'
 import { aiCacheFilePath } from '../paths'
 
 export type CacheKind = 'triage' | 'review'
@@ -27,4 +27,8 @@ export function loadCache(): Record<string, unknown> {
 }
 export function saveCache(store: Record<string, unknown>): void {
   writeFileSync(aiCacheFilePath(), JSON.stringify(store))
+}
+export function clearCache(): void {
+  const path = aiCacheFilePath()
+  if (existsSync(path)) rmSync(path, { force: true })
 }

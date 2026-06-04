@@ -102,6 +102,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const [aiError, setAiError] = useState<string | null>(null)
   const [testStatus, setTestStatus] = useState<string | null>(null)
   const [reviewInstructions, setReviewInstructions] = useState('')
+  const [confirmReset, setConfirmReset] = useState(false)
+  const [cacheStatus, setCacheStatus] = useState<string | null>(null)
   const { theme, setTheme } = useTheme()
 
   useEffect(() => { api.getSettings().then(setSettings) }, [])
@@ -135,6 +137,20 @@ export function Settings({ onClose }: { onClose: () => void }) {
     }
     await api.saveReviewInstructions(reviewInstructions)
     onClose()
+  }
+
+  async function clearAiCache() {
+    await api.clearAiCache()
+    setCacheStatus('AI cache cleared.')
+  }
+
+  // Two-click confirm: the first click arms the button, the second performs the
+  // (irreversible) reset, then reloads so the app re-checks auth and falls back to
+  // the first-run token screen.
+  async function resetCredentials() {
+    if (!confirmReset) { setConfirmReset(true); return }
+    await api.resetCredentials()
+    window.location.reload()
   }
 
   const intervalIsPreset = INTERVAL_PRESETS.some((o) => o.value === settings.refreshIntervalSeconds)
@@ -410,6 +426,35 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 />
                 {aiError && <p className="text-sm text-destructive">{aiError}</p>}
               </div>
+
+              <SettingsGroup title="Maintenance">
+                <div className="grid gap-2">
+                  <div className="flex items-center gap-3">
+                    <Button type="button" variant="outline" className="w-fit" onClick={clearAiCache}>
+                      Clear AI cache
+                    </Button>
+                    {cacheStatus && <p className={fieldHelp}>{cacheStatus}</p>}
+                  </div>
+                  <p className={fieldHelp}>
+                    Deletes locally-cached triage and review results. They're regenerated on demand the next time you open a PR.
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="w-fit"
+                    onClick={resetCredentials}
+                    onBlur={() => setConfirmReset(false)}
+                  >
+                    {confirmReset ? 'Click again to confirm' : 'Reset credentials'}
+                  </Button>
+                  <p className={fieldHelp}>
+                    Removes your stored GitHub token and Anthropic key from this machine and returns to the setup screen. Your settings are kept.
+                  </p>
+                </div>
+              </SettingsGroup>
             </TabsContent>
 
             <TabsContent value="appearance" className="grid gap-5 mt-0">
