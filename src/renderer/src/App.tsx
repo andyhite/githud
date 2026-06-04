@@ -63,7 +63,7 @@ function Dashboard({
   const [reviewId, setReviewId] = useState<string | null>(null)
   useEffect(() => { api.getAiStatus().then((s) => setAiOn(s.hasKey)) }, [])
 
-  const { settings, onToggleCharts } = useSettings()
+  const { settings } = useSettings()
 
   const { onRead, onReadAll } = useReadState()
   const unread = snapshot?.events?.filter((e) => e.unread).length ?? 0
@@ -123,17 +123,13 @@ function Dashboard({
         pollBaseMs={Math.max(30, settings.refreshIntervalSeconds || 60) * 1000}
         pollReserveFraction={1 - Math.min(Math.max(settings.apiBudgetPercent || 80, 10), 100) / 100}
       />
-      <TrendStrip
-        history={snapshot?.history ?? []}
-        events={snapshot?.events ?? []}
-        collapsed={settings.chartsCollapsed}
-        onToggleCollapsed={onToggleCharts}
-      />
+      <TrendStrip history={snapshot?.history ?? []} events={snapshot?.events ?? []} />
       <main className="grid grid-cols-[2fr_1fr] gap-3 p-3 flex-1 overflow-hidden">
         <div className="flex flex-col gap-3 min-h-0">
           <Panel
             title="Needs my review"
             count={visibleNeedsReview}
+            className="flex-1"
             actions={<ShowHiddenToggle count={hiddenReviewCount} open={showHiddenReview} onToggle={() => setShowHiddenReview((v) => !v)} />}
           >
             <PrTable
@@ -157,6 +153,7 @@ function Dashboard({
             <Panel
               title="Team PRs"
               count={teamVisibleCount}
+              className="flex-1"
               actions={
                 <>
                   <LabelFilterChips labels={teamLabels} muted={mutedLabels} onToggle={toggleLabel} />
@@ -180,6 +177,7 @@ function Dashboard({
           <Panel
             title="My open PRs"
             count={visibleMine}
+            className="flex-1"
             actions={<ShowHiddenToggle count={hiddenMineCount} open={showHiddenMine} onToggle={() => setShowHiddenMine((v) => !v)} />}
           >
             <PrTable
@@ -197,13 +195,14 @@ function Dashboard({
         </div>
         <aside className="flex flex-col gap-3 min-h-0 overflow-hidden">
           {aiOn && (
-            <Panel title="Recap" actions={<span className="text-xs text-muted-foreground">since you were away</span>}>
+            <Panel title="Recap" className="shrink-0" actions={<span className="text-xs text-muted-foreground">since you were away</span>}>
               <DigestPane digest={digest} />
             </Panel>
           )}
           <Panel
             title="Activity"
             count={unread}
+            className="flex-1"
             actions={
               <>
                 {aiOn && (

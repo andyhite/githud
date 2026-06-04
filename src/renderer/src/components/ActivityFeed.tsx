@@ -39,11 +39,11 @@ function EventRow({ event, onRead }: { event: FeedEvent; onRead: (id: string) =>
   return (
     <div
       className={cn(
-        'flex w-full gap-2 rounded-md border border-l-[3px] bg-background p-2 text-left transition-colors',
+        'flex w-full gap-2 rounded-md border border-l-[3px] bg-background p-2 text-left transition-[background-color,opacity]',
         'focus-visible:outline-2 focus-visible:outline-sev-info',
         sev.border,
         sev.hover,
-        event.unread && sev.unread
+        event.unread ? sev.unread : 'opacity-60 hover:opacity-100'
       )}
       role="button"
       tabIndex={0}

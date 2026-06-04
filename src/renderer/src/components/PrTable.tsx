@@ -74,7 +74,7 @@ export function PrTable({
         <PrTitleCell pr={pr} showAuthor={showAuthor} />
       </TableCell>
       {columns.map((c) => (
-        <TableCell key={c} className={cn('align-top', compact(c) && 'w-px whitespace-nowrap')}>
+        <TableCell key={c} className={cn(compact(c) && 'w-px whitespace-nowrap')}>
           {cellFor(c, pr)}
         </TableCell>
       ))}
@@ -93,7 +93,7 @@ export function PrTable({
   )
 
   return (
-    <Table>
+    <Table className="[&_th]:px-3 [&_td]:px-3 [&_th:first-child]:pl-1 [&_td:first-child]:pl-1 [&_th:last-child]:pr-1 [&_td:last-child]:pr-1">
       <TableHeader>
         <TableRow>
           <TableHead>PR</TableHead>

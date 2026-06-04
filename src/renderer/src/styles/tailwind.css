@@ -108,6 +108,20 @@ body {
   * {
     border-color: var(--border);
   }
+  /* Tailwind v4 / shadcn don't set a pointer cursor on interactive elements
+     (the browser default for <button> is `default`). Restore it for the
+     things users click. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem'],
+  [role='menuitemradio'],
+  [role='option'],
+  [role='tab'],
+  [role='switch'],
+  label[for],
+  summary {
+    cursor: pointer;
+  }
 }
 
 /* Thin, theme-matched scrollbars for all scroll containers. */

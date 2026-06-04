@@ -37,14 +37,10 @@ const DELTA_CLS: Record<string, string> = {
 
 export function TrendStrip({
   history,
-  events,
-  collapsed,
-  onToggleCollapsed
+  events
 }: {
   history: DailyMetric[]
   events: FeedEvent[]
-  collapsed: boolean
-  onToggleCollapsed: () => void
 }) {
   const queue = queueMetric(history)
   const merges = mergesMetric(history)
@@ -59,41 +55,29 @@ export function TrendStrip({
   ]
 
   return (
-    <div className="px-3 pt-2">
-      <button
-        type="button"
-        className="text-xs text-muted-foreground hover:text-card-foreground"
-        onClick={onToggleCollapsed}
-        aria-label={collapsed ? 'Show trends' : 'Hide trends'}
-      >
-        {collapsed ? '▸ Trends' : '▾ Trends'}
-      </button>
-      {!collapsed && (
-        <div className="mt-2 grid grid-cols-4 gap-2">
-          {cards.map((c) => {
-            const empty = c.metric.series.length === 0
-            const delta = deltaText(c.metric, c.goodWhenUp, c.deltaSuffix)
-            return (
-              <div key={c.key} className="rounded-lg border bg-card p-2 min-w-0">
-                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{c.label}</div>
-                {empty ? (
-                  <div className="text-xs text-muted-foreground">collecting…</div>
+    <div className="grid grid-cols-4 gap-2 px-3 pt-2">
+      {cards.map((c) => {
+        const empty = c.metric.series.length === 0
+        const delta = deltaText(c.metric, c.goodWhenUp, c.deltaSuffix)
+        return (
+          <div key={c.key} className="rounded-lg border bg-card p-2 min-w-0">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{c.label}</div>
+            {empty ? (
+              <div className="text-xs text-muted-foreground">collecting…</div>
+            ) : (
+              <>
+                <div className="text-xl font-bold text-card-foreground">{c.value}</div>
+                {delta ? (
+                  <div className={`text-xs ${DELTA_CLS[delta.cls]}`}>{delta.text}</div>
                 ) : (
-                  <>
-                    <div className="text-xl font-bold text-card-foreground">{c.value}</div>
-                    {delta ? (
-                      <div className={`text-xs ${DELTA_CLS[delta.cls]}`}>{delta.text}</div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground">&nbsp;</div>
-                    )}
-                    <TrendChart values={c.metric.series} viz={c.viz} color={c.color} />
-                  </>
+                  <div className="text-xs text-muted-foreground">&nbsp;</div>
                 )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+                <TrendChart values={c.metric.series} viz={c.viz} color={c.color} />
+              </>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
