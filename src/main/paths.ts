@@ -28,3 +28,6 @@ export function aiKeyFilePath(): string {
 export function aiCacheFilePath(): string {
   return join(app.getPath('userData'), 'ai-cache.json')
 }
+export function reviewInstructionsFilePath(): string {
+  return join(app.getPath('userData'), 'review-instructions.md')
+}
