@@ -17,7 +17,8 @@ import { anchorFindings } from './ai/anchor-findings'
 import { postReview as postReviewToGithub } from './github/post-review'
 import { loadReviewInstructions, saveReviewInstructions, resetReviewInstructions } from './ai/review-instructions-store'
 import { fetchPrDiff } from './github/fetch-diff'
-import type { TriageVerdict, ReviewResult, PostReviewPayload, PostReviewResult } from '@shared/types'
+import { fetchOrgs, fetchTeams, classifyListError } from './github/orgs-teams'
+import type { TriageVerdict, ReviewResult, PostReviewPayload, PostReviewResult, ListResult, TeamOption } from '@shared/types'
 import { createClient, validateToken } from './github/client'
 import { filterEvents, applyAuthorFilters } from './github/filter-events'
 import { Poller } from './poller'
@@ -398,6 +399,25 @@ function registerIpc(): void {
     }
     void runPoll() // then re-fetch fresh data with the new filters
     return saved
+  })
+  // On-demand source pickers for Settings. Read-only GitHub list calls via the
+  // poller's Octokit (token stays in main). Degrade to a reason the UI explains
+  // rather than throwing — these are a convenience over free-text entry.
+  ipcMain.handle('listOrgs', async (): Promise<ListResult<string[]>> => {
+    if (!ensurePoller() || !poller) return { ok: false, reason: 'no_token' }
+    try {
+      return { ok: true, items: await fetchOrgs(poller.client) }
+    } catch (err) {
+      return { ok: false, reason: classifyListError(err) }
+    }
+  })
+  ipcMain.handle('listTeams', async (): Promise<ListResult<TeamOption[]>> => {
+    if (!ensurePoller() || !poller) return { ok: false, reason: 'no_token' }
+    try {
+      return { ok: true, items: await fetchTeams(poller.client) }
+    } catch (err) {
+      return { ok: false, reason: classifyListError(err) }
+    }
   })
 
   ipcMain.handle('openExternal', (_e, url: string) => {

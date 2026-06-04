@@ -261,6 +261,21 @@ export interface AiStatus {
   hasKey: boolean
 }
 
+// A team the authed user can pick for the Other-PRs panel. `slug` is the value
+// stored in Settings.otherTeam ("org/team"); `name` is the friendly display name.
+export interface TeamOption {
+  slug: string // "org/team"
+  name: string // display name
+  org: string // org login
+}
+
+// Result of an on-demand GitHub list call (orgs/teams). On failure the renderer
+// keeps free-text entry; `reason` lets it word a hint ('scope' = the token lacks
+// read:org, 'no_token' = not connected yet).
+export type ListResult<T> =
+  | { ok: true; items: T }
+  | { ok: false; reason: 'no_token' | 'scope' | 'network' | 'unknown' }
+
 // The typed surface exposed on window.api by preload.
 export interface GithudApi {
   getSnapshot(): Promise<DashboardSnapshot | null>
@@ -275,6 +290,10 @@ export interface GithudApi {
   resetCredentials(): Promise<{ ok: boolean }>
   getSettings(): Promise<Settings>
   saveSettings(settings: Settings): Promise<Settings>
+  // On-demand lookups to auto-populate the Other-PRs source pickers in Settings.
+  // Need the token's read:org scope; degrade to a `reason` the UI can explain.
+  listOrgs(): Promise<ListResult<string[]>>
+  listTeams(): Promise<ListResult<TeamOption[]>>
   openExternal(url: string): Promise<void>
   // Fires one desktop notification immediately (bypasses notifyKinds/quiet hours)
   // so the user can confirm macOS is actually delivering them. Returns false when

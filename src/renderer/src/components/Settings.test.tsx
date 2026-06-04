@@ -13,6 +13,8 @@ beforeEach(() => {
   window.api = {
     getSettings: vi.fn().mockResolvedValue(DEFAULT_SETTINGS),
     saveSettings: vi.fn().mockImplementation((s) => Promise.resolve(s)),
+    listOrgs: vi.fn().mockResolvedValue({ ok: false, reason: 'no_token' }),
+    listTeams: vi.fn().mockResolvedValue({ ok: false, reason: 'no_token' }),
     getAiStatus: vi.fn().mockResolvedValue({ hasKey: false }),
     saveAiKey: vi.fn().mockResolvedValue({ ok: true }),
     getAuthStatus: vi.fn().mockResolvedValue({ hasToken: true, login: 'me' }),

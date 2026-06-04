@@ -3,6 +3,7 @@ import { Settings as SettingsType, DEFAULT_SETTINGS, FeedEventKind } from '@shar
 import { api } from '../api'
 import { cn } from '@/lib/utils'
 import { ChipInput } from './ChipInput'
+import { OrgTeamFields } from './OrgTeamFields'
 import { PanelViewsEditor } from './PanelViewsEditor'
 import { useTheme } from './theme-provider'
 import { PanelId } from '@shared/types'
@@ -319,30 +320,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 title="Other PRs panel"
                 hint="What the “Other PRs” panel fetches. Configure any of these to enable the panel; leave all empty to hide it."
               >
-                <div className="grid gap-2">
-                  <ChipInput
-                    id="other-orgs"
-                    label="Organizations"
-                    values={settings.teamOrgs}
-                    onChange={(v) => patch({ teamOrgs: v })}
-                    placeholder="your-org"
-                  />
-                  <p className={fieldHelp}>Scope the search to these orgs. Your own repos are always included.</p>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="other-team">Team</Label>
-                  <Input
-                    id="other-team"
-                    value={settings.otherTeam}
-                    onChange={(e) => patch({ otherTeam: e.target.value })}
-                    placeholder="org/team"
-                  />
-                  <p className={fieldHelp}>
-                    Surface a team’s review queue (PRs where this team’s review was requested). The team’s org is added to the
-                    scope automatically. Leave blank for none.
-                  </p>
-                </div>
+                <OrgTeamFields
+                  orgs={settings.teamOrgs}
+                  team={settings.otherTeam}
+                  onOrgsChange={(v) => patch({ teamOrgs: v })}
+                  onTeamChange={(v) => patch({ otherTeam: v })}
+                />
 
                 <div className="grid gap-2">
                   <ChipInput
