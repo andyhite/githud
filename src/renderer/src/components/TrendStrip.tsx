@@ -55,7 +55,7 @@ export function TrendStrip({
   ]
 
   return (
-    <div className="grid grid-cols-4 gap-2 px-3 pt-2">
+    <div className="grid grid-cols-4 gap-3 px-3 pt-3">
       {cards.map((c) => {
         const empty = c.metric.series.length === 0
         const delta = deltaText(c.metric, c.goodWhenUp, c.deltaSuffix)

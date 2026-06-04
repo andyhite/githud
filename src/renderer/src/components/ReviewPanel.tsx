@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Chip } from './Chip'
+import { DiffSnippet } from './DiffSnippet'
 
 type Event = PostReviewPayload['event']
 
@@ -31,6 +32,7 @@ interface DraftFinding {
   resolvedSide?: 'LEFT' | 'RIGHT'
   anchored?: boolean
   snappedFrom?: number
+  fileInDiff?: boolean
 }
 
 export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => void }) {
@@ -47,31 +49,40 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
     setSummary(r.summary)
     setFindings(
       r.findings.map((f) => ({
-        include: true,
+        // Default-check only the findings worth acting on; leave low-priority
+        // notes/nits unchecked so the reviewer opts them in deliberately.
+        include: f.severity === 'blocker' || f.severity === 'concern',
         note: f.note,
         severity: f.severity,
         file: f.file,
         resolvedLine: f.resolvedLine,
         resolvedSide: f.resolvedSide,
         anchored: f.anchored,
-        snappedFrom: f.snappedFrom
+        snappedFrom: f.snappedFrom,
+        fileInDiff: f.fileInDiff
       }))
     )
     setEvent('COMMENT') // never pre-select a binding event
   }
 
-  function load() {
+  function load(force = false) {
     setResult(null)
     setError(null)
     setPostError(null)
-    api.getReview(prId).then(hydrate).catch((e) => setError(String(e?.message ?? e)))
+    api.getReview(prId, force).then(hydrate).catch((e) => setError(String(e?.message ?? e)))
   }
-  useEffect(load, [prId])
+  useEffect(() => { load() }, [prId])
 
-  // Inline comments only post for anchored, included findings. Unanchored
-  // findings are folded into the summary body so nothing is silently dropped.
+  // Included findings route three ways: anchored -> inline line comment;
+  // un-anchored but file IS in the diff -> whole-file comment; un-anchored and
+  // file absent from the diff -> folded into the summary (GitHub can't comment
+  // on a file it doesn't have).
+  const fileLevel = useMemo(
+    () => findings.filter((f) => f.include && !f.anchored && f.fileInDiff),
+    [findings]
+  )
   const folded = useMemo(
-    () => findings.filter((f) => f.include && !f.anchored),
+    () => findings.filter((f) => f.include && !f.anchored && !f.fileInDiff),
     [findings]
   )
 
@@ -81,14 +92,18 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
     const comments = findings
       .filter((f) => f.include && f.anchored && typeof f.resolvedLine === 'number')
       .map((f) => ({ path: f.file, line: f.resolvedLine!, side: f.resolvedSide ?? 'RIGHT', body: f.note }))
-    const foldedText = folded
-      .map((f) => `- ${f.file}${f.resolvedLine ? `:${f.resolvedLine}` : ''}: ${f.note}`)
-      .join('\n')
+    const fileComments = fileLevel.map((f) => ({ path: f.file, body: f.note }))
+    const foldedText = folded.map((f) => `- ${f.file}: ${f.note}`).join('\n')
     const body = foldedText ? `${summary}\n\n---\n${foldedText}` : summary
-    const payload: PostReviewPayload = { body, event, comments }
+    const payload: PostReviewPayload = { body, event, comments, fileComments }
     const res: PostReviewResult = await api.postReview(prId, payload)
     setPosting(false)
     if (res.ok) {
+      if (res.warning) {
+        // Review posted; some file-level comments didn't. Surface it instead of closing.
+        setPostError(res.warning)
+        return
+      }
       if (res.url) api.openExternal(res.url)
       onClose()
     } else {
@@ -102,19 +117,19 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[calc(100vh-4rem)] w-[calc(100vw-4rem)] max-w-6xl flex-col gap-0 p-0 sm:max-w-6xl">
+        <DialogHeader className="shrink-0 border-b px-6 py-4">
           <DialogTitle>Draft review <span className="text-muted-foreground font-normal">— review before posting</span></DialogTitle>
         </DialogHeader>
         {error ? (
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="p-6 text-sm text-destructive">{error}</p>
         ) : result === null ? (
-          <p className="text-muted-foreground">Generating…</p>
+          <p className="p-6 text-muted-foreground">Generating…</p>
         ) : (
-          <div className="flex flex-col gap-3 max-h-[65vh] overflow-auto">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-6 py-5">
             <div className="grid gap-1.5">
-              <span className="text-xs text-muted-foreground">Summary</span>
-              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-20" />
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Summary</span>
+              <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} className="min-h-32 leading-relaxed" />
             </div>
 
             {findings.length === 0 ? (
@@ -124,12 +139,12 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
                 <div
                   key={i}
                   className={cn(
-                    'border-l-[3px] rounded-r-md bg-background p-2.5',
+                    'rounded-r-md border-l-[3px] bg-background p-4',
                     SEVERITY_BORDER[f.severity] ?? 'border-l-border',
                     !f.include && 'opacity-50'
                   )}
                 >
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
+                  <div className="mb-2.5 flex items-center gap-2 text-xs text-muted-foreground">
                     <Checkbox checked={f.include} onCheckedChange={(c) => patchFinding(i, { include: c === true })} aria-label="Include comment" />
                     <Chip tone={SEVERITY_TONE[f.severity] ?? 'neutral'}>{f.severity}</Chip>
                     {f.anchored ? (
@@ -137,11 +152,16 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
                         → {f.file}:{f.resolvedLine} {f.resolvedSide === 'LEFT' ? '(old)' : ''}
                         {typeof f.snappedFrom === 'number' && <span className="text-sev-mention"> (snapped from :{f.snappedFrom})</span>}
                       </span>
+                    ) : f.fileInDiff ? (
+                      <span>→ {f.file} <span className="italic text-muted-foreground">(whole-file comment)</span></span>
                     ) : (
                       <span className="italic">folded into summary ({f.file})</span>
                     )}
                   </div>
-                  <Textarea value={f.note} onChange={(e) => patchFinding(i, { note: e.target.value })} className="min-h-14" />
+                  {f.anchored && (
+                    <DiffSnippet patch={result.patch} file={f.file} line={f.resolvedLine} side={f.resolvedSide} />
+                  )}
+                  <Textarea value={f.note} onChange={(e) => patchFinding(i, { note: e.target.value })} className="min-h-24 leading-relaxed" />
                 </div>
               ))
             )}
@@ -149,20 +169,20 @@ export function ReviewPanel({ prId, onClose }: { prId: string; onClose: () => vo
         )}
 
         {result && !error && (
-          <div className="flex items-center justify-between gap-3 pt-1">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t px-6 py-4">
             <ToggleGroup type="single" value={event} onValueChange={(v) => v && setEvent(v as Event)} variant="outline" aria-label="Review event">
               <ToggleGroupItem value="COMMENT">Comment</ToggleGroupItem>
               <ToggleGroupItem value="APPROVE">Approve</ToggleGroupItem>
               <ToggleGroupItem value="REQUEST_CHANGES">Request changes</ToggleGroupItem>
             </ToggleGroup>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={load} disabled={posting}>Regenerate</Button>
+              {postError && <span className="mr-1 text-sm text-destructive">{postError}</span>}
+              <Button variant="ghost" size="sm" onClick={() => load(true)} disabled={posting}>Regenerate</Button>
               <Button variant="outline" size="sm" onClick={onClose} disabled={posting}>Cancel</Button>
               <Button size="sm" onClick={post} disabled={posting}>{posting ? 'Posting…' : 'Post review'}</Button>
             </div>
           </div>
         )}
-        {postError && <p className="text-sm text-destructive">{postError}</p>}
       </DialogContent>
     </Dialog>
   )

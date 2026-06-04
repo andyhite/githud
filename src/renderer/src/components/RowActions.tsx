@@ -33,14 +33,14 @@ export function RowActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-44">
-        {!isHidden && aiOn && onReview && (
+        {aiOn && onReview && (
           <DropdownMenuItem onClick={() => onReview(pr.id)}>Draft review</DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => api.copyToClipboard(pr.url)}>Copy PR link</DropdownMenuItem>
         {pr.branch && (
           <DropdownMenuItem onClick={() => api.copyToClipboard(pr.branch)}>Copy branch name</DropdownMenuItem>
         )}
-        {!isHidden && onSnooze && (
+        {onSnooze && (
           <>
             <DropdownMenuItem onClick={() => onSnooze(pr, computeSnoozeUntil(new Date(), '1h'))}>Snooze 1 hour</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onSnooze(pr, computeSnoozeUntil(new Date(), 'tomorrow'))}>Snooze until tomorrow</DropdownMenuItem>

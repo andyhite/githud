@@ -448,7 +448,7 @@ function registerIpc(): void {
     saveCache(cache)
     return result
   })
-  ipcMain.handle('getReview', async (_e, prId: string): Promise<ReviewResult> => {
+  ipcMain.handle('getReview', async (_e, prId: string, force?: boolean): Promise<ReviewResult> => {
     const key = loadAiKey()
     if (!key) throw new Error('No AI key configured')
     if (!lastSnapshot) throw new Error('No data yet')
@@ -457,12 +457,12 @@ function registerIpc(): void {
     const headKey = pr.updatedAt
     const cache = loadCache()
     const cached = cache[cacheKey('review', prId, headKey)] as ReviewResult | undefined
-    if (cached) return cached
+    if (cached && !force) return cached
     if (!ensurePoller() || !poller) throw new Error('No token configured')
     const diff = await fetchPrDiff(poller.client, pr.repo, pr.number)
     const raw = await reviewPr(createAiClient(key), loadReviewInstructions(), prId, headKey, pr.title, diff, new Date().toISOString())
     const anchors = parseDiffAnchors(diff.patch)
-    const result: ReviewResult = { ...raw, findings: anchorFindings(raw.findings, anchors) }
+    const result: ReviewResult = { ...raw, findings: anchorFindings(raw.findings, anchors), patch: diff.patch }
     cache[cacheKey('review', prId, headKey)] = result
     saveCache(cache)
     return result

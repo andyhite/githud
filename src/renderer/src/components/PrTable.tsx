@@ -63,7 +63,19 @@ export function PrTable({
         return <AgeCell pr={pr} />
     }
   }
-  const compact = (c: PrColumn) => c !== 'reviewers'
+  // Fixed per-column widths (with table-fixed below) so any two PR tables sharing
+  // a column set — e.g. Team PRs and My PRs — line up, instead of each table
+  // auto-sizing to its own content. The PR (title) column flexes to fill the rest.
+  // triage and reviewers share the 3rd column slot across the three tables, so
+  // they get the SAME width — that keeps all three PR tables column-aligned.
+  const COL_WIDTH: Record<PrColumn, string> = {
+    diff: 'w-24',
+    status: 'w-32',
+    triage: 'w-36',
+    reviewers: 'w-36',
+    age: 'w-14'
+  }
+  const nowrap = (c: PrColumn) => c !== 'reviewers'
 
   const row = (pr: PullRequest, isHidden: boolean) => (
     <TableRow
@@ -74,11 +86,11 @@ export function PrTable({
         <PrTitleCell pr={pr} showAuthor={showAuthor} />
       </TableCell>
       {columns.map((c) => (
-        <TableCell key={c} className={cn(compact(c) && 'w-px whitespace-nowrap')}>
+        <TableCell key={c} className={cn(COL_WIDTH[c], nowrap(c) && 'whitespace-nowrap')}>
           {cellFor(c, pr)}
         </TableCell>
       ))}
-      <TableCell className="w-px whitespace-nowrap text-right">
+      <TableCell className="w-10 text-right">
         <RowActions
           pr={pr}
           isHidden={isHidden}
@@ -93,16 +105,16 @@ export function PrTable({
   )
 
   return (
-    <Table className="[&_th]:px-3 [&_td]:px-3 [&_th:first-child]:pl-1 [&_td:first-child]:pl-1 [&_th:last-child]:pr-1 [&_td:last-child]:pr-1">
+    <Table className="table-fixed [&_th]:px-3 [&_td]:px-3">
       <TableHeader>
         <TableRow>
           <TableHead>PR</TableHead>
           {columns.map((c) => (
-            <TableHead key={c} className={cn(compact(c) && 'w-px whitespace-nowrap')}>
+            <TableHead key={c} className={cn(COL_WIDTH[c], nowrap(c) && 'whitespace-nowrap')}>
               {headFor[c]}
             </TableHead>
           ))}
-          <TableHead aria-hidden="true" />
+          <TableHead aria-hidden="true" className="w-10" />
         </TableRow>
       </TableHeader>
       <TableBody>

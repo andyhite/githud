@@ -7,12 +7,16 @@ export function Panel({
   count,
   actions,
   className,
+  flush = false,
   children
 }: {
   title: string
   count?: number
   actions?: ReactNode
   className?: string
+  // flush: drop the body's horizontal padding so edge-to-edge content (the PR
+  // tables) sits near the panel edge; cell padding still provides a small inset.
+  flush?: boolean
   children: ReactNode
 }) {
   return (
@@ -22,7 +26,9 @@ export function Panel({
         {count !== undefined && <Chip tone="count">{count}</Chip>}
         <div className="ml-auto flex items-center gap-2">{actions}</div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">{children}</div>
+      <div className={cn('min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]', flush ? 'px-0 py-1' : 'px-3 py-2')}>
+        {children}
+      </div>
     </section>
   )
 }

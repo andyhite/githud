@@ -182,8 +182,9 @@ export interface ReviewFinding {
   // Filled by anchor-findings in main before the result reaches the renderer:
   resolvedLine?: number
   resolvedSide?: ReviewSide
-  anchored?: boolean // false => no valid anchor in the diff; fold into summary
+  anchored?: boolean // false => no valid line anchor in the diff
   snappedFrom?: number // set only when resolvedLine differs from the model's line
+  fileInDiff?: boolean // the file appears in the (capped) diff — eligible for a file-level comment even when not line-anchored
 }
 
 export interface ReviewResult {
@@ -192,6 +193,7 @@ export interface ReviewResult {
   findings: ReviewFinding[]
   summary: string
   generatedAt: string
+  patch?: string // the (capped) unified diff, so the renderer can show context around findings
 }
 
 export interface PostReviewComment {
@@ -201,14 +203,22 @@ export interface PostReviewComment {
   body: string
 }
 
+// A whole-file comment (no line) for findings that couldn't anchor to a diff line
+// but whose file is in the diff. Posted separately from the review (see post-review).
+export interface PostReviewFileComment {
+  path: string
+  body: string
+}
+
 export interface PostReviewPayload {
   body: string
   event: 'COMMENT' | 'APPROVE' | 'REQUEST_CHANGES'
   comments: PostReviewComment[]
+  fileComments?: PostReviewFileComment[]
 }
 
 export type PostReviewResult =
-  | { ok: true; url: string }
+  | { ok: true; url: string; warning?: string }
   | { ok: false; kind: 'forbidden' | 'auth' | 'network' | 'unprocessable' | 'unknown'; message: string }
 
 export interface AiStatus {
@@ -243,7 +253,7 @@ export interface GithudApi {
   saveAiKey(key: string): Promise<{ ok: boolean; error?: string }>
   getTriage(prId: string): Promise<TriageVerdict | null>
   getDigest(): Promise<DigestResult>
-  getReview(prId: string): Promise<ReviewResult>
+  getReview(prId: string, force?: boolean): Promise<ReviewResult>
   postReview(prId: string, payload: PostReviewPayload): Promise<PostReviewResult>
   getReviewInstructions(): Promise<string>
   saveReviewInstructions(text: string): Promise<void>

@@ -123,13 +123,22 @@ function Dashboard({
         pollBaseMs={Math.max(30, settings.refreshIntervalSeconds || 60) * 1000}
         pollReserveFraction={1 - Math.min(Math.max(settings.apiBudgetPercent || 80, 10), 100) / 100}
       />
+      {aiOn && digest?.markdown?.trim() && (
+        <section className="border-b px-3 pt-3 pb-3">
+          <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Recap · since you were away
+          </p>
+          <DigestPane digest={digest} />
+        </section>
+      )}
       <TrendStrip history={snapshot?.history ?? []} events={snapshot?.events ?? []} />
-      <main className="grid grid-cols-[2fr_1fr] gap-3 p-3 flex-1 overflow-hidden">
-        <div className="flex flex-col gap-3 min-h-0">
+      <main className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3 p-3 flex-1 overflow-hidden">
+        <div className="flex flex-col gap-3 min-h-0 min-w-0">
           <Panel
             title="Needs my review"
             count={visibleNeedsReview}
             className="flex-1"
+            flush
             actions={<ShowHiddenToggle count={hiddenReviewCount} open={showHiddenReview} onToggle={() => setShowHiddenReview((v) => !v)} />}
           >
             <PrTable
@@ -154,6 +163,7 @@ function Dashboard({
               title="Team PRs"
               count={teamVisibleCount}
               className="flex-1"
+              flush
               actions={
                 <>
                   <LabelFilterChips labels={teamLabels} muted={mutedLabels} onToggle={toggleLabel} />
@@ -178,6 +188,7 @@ function Dashboard({
             title="My open PRs"
             count={visibleMine}
             className="flex-1"
+            flush
             actions={<ShowHiddenToggle count={hiddenMineCount} open={showHiddenMine} onToggle={() => setShowHiddenMine((v) => !v)} />}
           >
             <PrTable
@@ -193,12 +204,7 @@ function Dashboard({
             />
           </Panel>
         </div>
-        <aside className="flex flex-col gap-3 min-h-0 overflow-hidden">
-          {aiOn && (
-            <Panel title="Recap" className="shrink-0" actions={<span className="text-xs text-muted-foreground">since you were away</span>}>
-              <DigestPane digest={digest} />
-            </Panel>
-          )}
+        <aside className="flex flex-col gap-3 min-h-0 min-w-0 overflow-hidden">
           <Panel
             title="Activity"
             count={unread}

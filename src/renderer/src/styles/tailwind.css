@@ -39,7 +39,7 @@
 .dark {
   --background: #1d1f21;          /* base00 */
   --foreground: #c5c8c6;          /* base05 */
-  --card: #282a2e;                /* base01 (a step lighter than bg) */
+  --card: #1d1f21;                /* base00 (same as bg — panels separated by --border only) */
   --card-foreground: #c5c8c6;     /* base05 */
   --popover: #282a2e;             /* base01 */
   --popover-foreground: #c5c8c6;  /* base05 */

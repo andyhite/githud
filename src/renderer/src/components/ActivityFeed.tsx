@@ -64,7 +64,7 @@ function EventRow({ event, onRead }: { event: FeedEvent; onRead: (id: string) =>
           <span className="text-muted-foreground">{ACTION[event.kind]}</span>
           <span className="ml-auto text-xs text-muted-foreground">{relativeAge(event.createdAt)}</span>
         </div>
-        <div className="text-card-foreground break-words">{event.title}</div>
+        <div className="text-card-foreground break-words line-clamp-2" title={event.title}>{event.title}</div>
         <div className="text-xs text-sev-info">{event.repo} #{event.number}</div>
       </div>
     </div>

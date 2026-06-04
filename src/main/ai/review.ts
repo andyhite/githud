@@ -3,7 +3,9 @@ import { ReviewResult, ReviewFinding } from '@shared/types'
 import { PrDiff } from '../github/fetch-diff'
 import { AI_MODEL } from './client'
 
-const TASK = `You are reviewing a pull request diff. Produce a PR-level review summary and a list of inline findings, each anchored to a file and a line in the diff. Adopt the reviewing voice, focus, and severity calibration described in the instructions above. Respond ONLY with the requested JSON.`
+const TASK = `You are reviewing a pull request diff. Produce a PR-level review summary and a list of inline findings, each anchored to a file and a line in the diff. Adopt the reviewing voice, focus, and severity calibration described in the instructions above.
+
+For every finding, set "file" to the path copied VERBATIM from the diff's "+++ b/<path>" header for that hunk — character for character, including every directory segment. Do NOT abbreviate, normalize, infer, or reconstruct the path from memory; if you cannot find the file's "+++ b/" header in the diff, do not invent a path. Respond ONLY with the requested JSON.`
 
 const SCHEMA = {
   type: 'object',
@@ -17,7 +19,7 @@ const SCHEMA = {
         additionalProperties: false,
         properties: {
           severity: { type: 'string', enum: ['note', 'concern', 'blocker'] },
-          file: { type: 'string', description: 'path exactly as it appears in the diff' },
+          file: { type: 'string', description: 'path copied verbatim from the diff "+++ b/<path>" header — every directory segment, no abbreviation' },
           line: { type: 'integer', description: 'line number in the new file (or old file for deletions)' },
           side: { type: 'string', enum: ['LEFT', 'RIGHT'], description: "RIGHT for added/changed lines, LEFT for deleted lines" },
           note: { type: 'string', description: "the inline comment, in the reviewer's voice" }

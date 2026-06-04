@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildReviewRequest, classifyPostError } from './post-review'
+import { buildReviewRequest, buildFileCommentRequests, classifyPostError } from './post-review'
 
 describe('buildReviewRequest', () => {
   it('shapes a create-review request and keeps valid inline comments', () => {
@@ -34,6 +34,23 @@ describe('buildReviewRequest', () => {
   it('omits the comments key entirely when there are none', () => {
     const req = buildReviewRequest('me', 'repo', 7, { body: 's', event: 'APPROVE', comments: [] })
     expect('comments' in req).toBe(false)
+  })
+})
+
+describe('buildFileCommentRequests', () => {
+  it('shapes one file-level comment request per finding with subject_type file', () => {
+    const reqs = buildFileCommentRequests('me', 'repo', 7, 'abc123', [
+      { path: 'a.ts', body: 'whole-file note' },
+      { path: 'b.ts', body: 'another' }
+    ])
+    expect(reqs).toEqual([
+      { owner: 'me', repo: 'repo', pull_number: 7, commit_id: 'abc123', path: 'a.ts', subject_type: 'file', body: 'whole-file note' },
+      { owner: 'me', repo: 'repo', pull_number: 7, commit_id: 'abc123', path: 'b.ts', subject_type: 'file', body: 'another' }
+    ])
+  })
+
+  it('returns an empty array when there are no file comments', () => {
+    expect(buildFileCommentRequests('me', 'repo', 7, 'abc123', [])).toEqual([])
   })
 })
 
