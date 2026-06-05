@@ -51,13 +51,17 @@ EOF
 openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
   -keyout "$tmp/key.pem" -out "$tmp/cert.pem" -config "$tmp/openssl.cnf" >/dev/null 2>&1
 
-# 2. Bundle key + cert into a passwordless PKCS#12 for import.
-openssl pkcs12 -export -inkey "$tmp/key.pem" -in "$tmp/cert.pem" \
-  -out "$tmp/identity.p12" -passout pass: -name "$CERT_NAME" >/dev/null 2>&1
+# 2. Bundle key + cert into a PKCS#12 for import. -legacy emits a SHA1 MAC +
+#    3DES/RC2 container; OpenSSL 3's modern default (SHA256 MAC / AES) fails
+#    macOS `security import` with "MAC verification failed". The password is
+#    transient (this p12 is deleted on exit) — it just guards the handoff.
+P12_PASS="githud-import"
+openssl pkcs12 -export -legacy -inkey "$tmp/key.pem" -in "$tmp/cert.pem" \
+  -out "$tmp/identity.p12" -passout "pass:$P12_PASS" -name "$CERT_NAME" >/dev/null 2>&1
 
 # 3. Import into the login keychain; -T whitelists codesign on the private key's
 #    ACL so signing doesn't prompt for the key on every build.
-security import "$tmp/identity.p12" -k "$KEYCHAIN" -P "" \
+security import "$tmp/identity.p12" -k "$KEYCHAIN" -P "$P12_PASS" \
   -T /usr/bin/codesign -T /usr/bin/security >/dev/null
 
 # 4. Trust the cert for the code-signing policy so it shows up as *valid* in
