@@ -253,6 +253,10 @@ export interface GithudApi {
   refresh(): Promise<DashboardSnapshot>
   onSnapshot(cb: (snap: DashboardSnapshot) => void): () => void
   onDigest(cb: (digest: DigestResult) => void): () => void
+  // macOS-only signal: the traffic lights vanish in native fullscreen, so the
+  // TopBar drops its left inset. Fires the current state immediately on subscribe
+  // (so initial mount is correct) and again on every enter/leave-fullscreen.
+  onFullscreenChange(cb: (isFullscreen: boolean) => void): () => void
   getAuthStatus(): Promise<AuthStatus>
   saveToken(token: string): Promise<{ ok: boolean; login?: string; error?: string }>
   // Removes both stored secrets (GitHub token + Anthropic key) from this machine,

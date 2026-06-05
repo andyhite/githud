@@ -14,6 +14,14 @@ const api: GithudApi = {
     ipcRenderer.on('digest', listener)
     return () => ipcRenderer.removeListener('digest', listener)
   },
+  onFullscreenChange: (cb) => {
+    const listener = (_e: unknown, isFullscreen: boolean) => cb(isFullscreen)
+    ipcRenderer.on('fullscreen-change', listener)
+    // Seed the current state on subscribe so the initial render is correct
+    // regardless of whether the window already started in fullscreen.
+    void ipcRenderer.invoke('isFullscreen').then((v: boolean) => cb(v))
+    return () => ipcRenderer.removeListener('fullscreen-change', listener)
+  },
   getAuthStatus: () => ipcRenderer.invoke('getAuthStatus'),
   saveToken: (token: string) => ipcRenderer.invoke('saveToken', token),
   resetCredentials: () => ipcRenderer.invoke('resetCredentials'),

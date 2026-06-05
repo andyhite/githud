@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useTheme } from './theme-provider'
 import { relativeAge } from '@/lib/relative-age'
+import { api } from '@/api'
 
 // Data older than ~2x the 30s poll interval is treated as stale.
 const STALE_MS = 90_000
@@ -30,6 +31,12 @@ export function TopBar({
   pollReserveFraction?: number
 }) {
   const { theme, setTheme } = useTheme()
+
+  // In native macOS fullscreen the traffic lights vanish, so the extra left
+  // inset that clears them becomes an awkward gap — drop it and shift the brand
+  // back flush left. Main pushes the current state (and every transition).
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  useEffect(() => api.onFullscreenChange(setIsFullscreen), [])
 
   // Tick so the relative age — and the stale escalation — keeps advancing even
   // when no snapshot arrives (silent timer stall / machine sleep), since the
@@ -90,8 +97,9 @@ export function TopBar({
     <header
       className={cn(
         'drag-region flex select-none items-center gap-3 border-b bg-card py-2 pr-3.5',
-        // Clear the traffic lights on macOS; standard left padding otherwise.
-        isMac ? 'pl-[5.25rem]' : 'pl-3.5'
+        // Clear the traffic lights on macOS — but only while they're showing.
+        // Fullscreen hides them, so fall back to the standard inset.
+        isMac && !isFullscreen ? 'pl-[5.25rem]' : 'pl-3.5'
       )}
     >
       <span className="font-bold text-card-foreground">githud</span>

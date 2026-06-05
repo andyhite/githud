@@ -155,6 +155,15 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => { mainWindow = null })
   mainWindow.on('focus', onForeground)
+
+  // macOS fullscreen hides the traffic lights, so the TopBar collapses its left
+  // inset. Push every transition to the renderer (the initial state is served by
+  // the 'isFullscreen' IPC handler when the TopBar subscribes).
+  const sendFullscreen = (isFullscreen: boolean) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('fullscreen-change', isFullscreen)
+  }
+  mainWindow.on('enter-full-screen', () => sendFullscreen(true))
+  mainWindow.on('leave-full-screen', () => sendFullscreen(false))
 }
 
 function applyLoginItem(settings: Settings): void {
@@ -358,6 +367,8 @@ function registerIpc(): void {
   ipcMain.handle('getSnapshot', () => lastSnapshot ?? loadCachedSnapshot())
 
   ipcMain.handle('refresh', () => runPoll())
+
+  ipcMain.handle('isFullscreen', () => mainWindow?.isFullScreen() ?? false)
 
   ipcMain.handle('getAuthStatus', async (): Promise<AuthStatus> => {
     if (!hasToken()) return { hasToken: false }
