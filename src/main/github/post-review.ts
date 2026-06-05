@@ -57,8 +57,9 @@ export function classifyPostError(err: any): Extract<PostReviewResult, { ok: fal
 }
 
 // Glue: create a single PENDING (draft) PR review. owner/repo split happens in
-// the caller. One create-review call covers everything — the summary, the
-// folded whole-file notes, and the inline line comments all land in the draft.
+// the caller. The create-review call carries ONLY the inline line comments — no
+// `event` (so it stays a draft) and no `body` (so no summary comment is posted);
+// the AI assessment/recommendation and any un-anchored findings stay in the app.
 export async function postReview(
   octokit: Octokit,
   owner: string,

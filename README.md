@@ -3,7 +3,9 @@
 A local, single-user desktop dashboard for the GitHub pull requests and activity
 you care about day to day. It runs on your machine, talks only to github.com (and,
 optionally, the Anthropic API), and is read-only by design — rows link out to
-github.com rather than acting on your behalf.
+github.com rather than acting on your behalf. The one narrow exception: it can
+start a *draft* PR review (inline comments only, never submitted) that you finish
+and submit yourself on github.com.
 
 > **Status:** early (v0.1.0), unsigned builds. Single-account, github.com only.
 > Built to be useful for one person on one machine, not a hosted service.
@@ -12,7 +14,7 @@ github.com rather than acting on your behalf.
 
 - **Needs review** — open PRs where you're an individually requested reviewer, with
   author, reviewers, checks, age, and (optionally) an AI triage verdict.
-- **Other PRs** *(opt-in)* — a review-ready overview scoped to the orgs / teams /
+- **Other PRs** *(opt-in)* — a review-ready overview scoped to the orgs / team /
   labels you configure. Hidden until you add a source in Settings.
 - **My open PRs** — PRs you authored, with review status (approvals / changes
   requested / mergeable) and check status.
@@ -32,10 +34,15 @@ github.com rather than acting on your behalf.
 ## Prerequisites
 
 - **Node.js** 18+ and **pnpm** (`npm i -g pnpm` if you don't have it).
-- A **GitHub Personal Access Token**:
-  - Classic token with scopes `repo`, `read:org`, `notifications`, **or**
-  - A fine-grained token with read access to pull requests and checks.
-- *(Optional)* An **Anthropic API key**, only if you want the AI features.
+- A **GitHub Personal Access Token** (github.com):
+  - **Classic** — `repo`, plus `read:org` for the "Other PRs" org/team pickers. **Or**
+  - **Fine-grained** — Pull requests + Checks **read** (add Pull requests **write**
+    if you want the draft-review flow, and Organization *Members* **read** for the
+    org/team pickers).
+
+  No `notifications` scope is needed — the activity feed is derived by diffing PR
+  state between polls, not pulled from GitHub's notifications API.
+- *(Optional)* An **Anthropic API key**, for the AI features.
 
 ## Install & run
 
@@ -86,7 +93,7 @@ The **⚙** button opens Settings, organized into tabs:
 |---|---|
 | **General** | Refresh interval, API budget reserve, stale threshold, launch at login |
 | **Notifications** | Per-kind notification toggles, quiet hours |
-| **Filters & Views** | Excluded authors, the "Other PRs" source (orgs / teams / labels), and saved per-panel views |
+| **Filters & Team** | Excluded authors and the "Other PRs" source (orgs / team / labels) |
 | **Review** | The editable AI review system prompt (only relevant with an Anthropic key) |
 | **Connections** | Update your GitHub token; add/replace your Anthropic key |
 | **Appearance** | Light / dark theme |

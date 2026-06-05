@@ -1,8 +1,9 @@
 # Contributing to githud
 
 Thanks for your interest in improving githud. It's a local, single-user, read-only
-GitHub dashboard — small and focused on purpose. This guide covers how to get set up
-and what to keep in mind.
+GitHub dashboard — small and focused on purpose. (One narrow exception to "read-only":
+starting a *draft* PR review you submit yourself on github.com — see the scope note
+below.) This guide covers how to get set up and what to keep in mind.
 
 ## Getting started
 

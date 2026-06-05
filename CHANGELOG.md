@@ -25,7 +25,8 @@ All notable changes to this project are documented here. The format is based on
 
 ## [0.1.0]
 
-Initial version. Local, single-user, read-only GitHub dashboard:
+Initial version. Local, single-user, read-only GitHub dashboard (one narrow write
+path: starting a draft PR review you submit yourself — see below):
 
 - Needs-review, My-open-PRs, and opt-in Other-PRs panels.
 - Derived activity feed (diffed from PR state), trend strip, and native

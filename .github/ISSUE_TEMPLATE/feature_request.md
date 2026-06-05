@@ -16,5 +16,6 @@ What you'd like to see.
 Any workarounds or other approaches you've thought about.
 
 **Scope note**
-githud is intentionally read-only and single-account (see "Scope discipline" in
-`CLAUDE.md`). Features that fit that scope are most likely to land.
+githud is intentionally read-only and single-account — apart from one narrow write
+path (starting a *draft* PR review you submit yourself on github.com). See "Scope
+discipline" in `CLAUDE.md`. Features that fit that scope are most likely to land.
