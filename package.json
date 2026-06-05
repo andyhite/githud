@@ -1,6 +1,6 @@
 {
   "name": "githud",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A local, single-user desktop dashboard for the GitHub pull requests and activity you care about day to day.",
   "main": "./out/main/index.js",
   "packageManager": "pnpm@9.12.0",
