@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { TokenSetup } from './TokenSetup'
+import { TokenSetup } from './token-setup'
 
 describe('TokenSetup', () => {
   beforeEach(() => {

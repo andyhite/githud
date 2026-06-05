@@ -2,8 +2,8 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Settings as SettingsType, DEFAULT_SETTINGS, FeedEventKind } from '@shared/types'
 import { api } from '../api'
 import { cn } from '@/lib/utils'
-import { ChipInput } from './ChipInput'
-import { OrgTeamFields } from './OrgTeamFields'
+import { ChipInput } from './chip-input'
+import { OrgTeamFields } from './org-team-fields'
 import { useTheme } from './theme-provider'
 import {
   Dialog,

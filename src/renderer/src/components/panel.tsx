@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Chip } from './Chip'
+import { Chip } from './chip'
 import { cn } from '@/lib/utils'
 
 export function Panel({

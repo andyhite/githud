@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PrTable, type PrColumn } from './PrTable'
-import { ShowHiddenToggle } from './RowActions'
+import { PrTable, type PrColumn } from './pr-table'
+import { ShowHiddenToggle } from './show-hidden-toggle'
 import type { PullRequest } from '@shared/types'
 
 // Column configs mirroring how App.tsx wires each panel, so the assertions below

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { ActivityFeed } from './ActivityFeed'
+import { ActivityFeed } from './activity-feed'
 import type { FeedEvent } from '@shared/types'
 
 function ev(over: Partial<FeedEvent> = {}): FeedEvent {

@@ -1,9 +1,9 @@
 import { FeedEvent } from '@shared/types'
 import { api } from '../api'
-import { relativeAge } from './pr-cells'
-import { EventIcon } from './icons'
-import { severityForKind } from './activity-severity'
-import { EmptyState } from './EmptyState'
+import { relativeAge } from '@/lib/relative-age'
+import { EventIcon } from './event-icon'
+import { severityForKind } from '@/lib/activity-severity'
+import { EmptyState } from './empty-state'
 import { cn } from '@/lib/utils'
 
 const ACTION: Record<FeedEvent['kind'], string> = {

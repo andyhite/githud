@@ -1,8 +1,8 @@
 import { MoreVertical } from 'lucide-react'
 import { PullRequest } from '@shared/types'
-import { api } from '../api'
-import { computeSnoozeUntil } from './snooze'
-import { HideProps } from './hide-types'
+import { api } from '@/api'
+import { computeSnoozeUntil } from '@/lib/snooze'
+import { HideProps } from '@/lib/hide-types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -71,27 +71,5 @@ export function RowActions({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-export function ShowHiddenToggle({
-  count,
-  open,
-  onToggle
-}: {
-  count: number
-  open: boolean
-  onToggle: () => void
-}) {
-  if (count === 0) return null
-  return (
-    <Button
-      variant="link"
-      size="sm"
-      className="h-auto p-0 text-xs text-muted-foreground"
-      onClick={onToggle}
-    >
-      {open ? 'hide hidden' : `show hidden (${count})`}
-    </Button>
   )
 }

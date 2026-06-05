@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { TrendStrip } from './TrendStrip'
+import { TrendStrip } from './trend-strip'
 import { DailyMetric, FeedEvent } from '@shared/types'
 
 const history: DailyMetric[] = [

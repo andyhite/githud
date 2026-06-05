@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render as rtlRender, screen, fireEvent, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import userEvent from '@testing-library/user-event'
-import { Settings } from './Settings'
+import { Settings } from './settings'
 import { ThemeProvider } from './theme-provider'
 import { DEFAULT_SETTINGS } from '@shared/types'
 

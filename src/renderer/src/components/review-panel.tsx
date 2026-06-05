@@ -6,8 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
-import { Chip } from './Chip'
-import { DiffSnippet } from './DiffSnippet'
+import { Chip } from './chip'
+import { DiffSnippet } from './diff-snippet'
 import { ExternalLink } from 'lucide-react'
 
 const SEVERITY_META: Record<string, { border: string; tone: 'failure' | 'mention' | 'info' }> = {

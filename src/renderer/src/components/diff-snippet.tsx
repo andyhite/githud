@@ -1,5 +1,5 @@
 import { ReviewSide } from '@shared/types'
-import { diffSnippet, DiffSnippetLine } from './diff-snippet'
+import { diffSnippet, DiffSnippetLine } from '@/lib/diff-snippet'
 import { cn } from '@/lib/utils'
 
 const ROW: Record<DiffSnippetLine['type'], string> = {

@@ -1,6 +1,6 @@
 import { DailyMetric, FeedEvent } from '@shared/types'
-import { queueMetric, wipMetric, mergesMetric, activityMetric, formatChurn, CardMetric } from './trend-metrics'
-import { TrendChart } from './TrendChart'
+import { queueMetric, wipMetric, mergesMetric, activityMetric, formatChurn, CardMetric } from '@/lib/trend-metrics'
+import { TrendChart } from './trend-chart'
 
 type Viz = 'line' | 'bars'
 

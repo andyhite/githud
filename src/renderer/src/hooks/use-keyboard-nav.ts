@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { PullRequest } from '@shared/types'
 import { api } from '../api'
-import { moveSelection } from './selection'
+import { moveSelection } from '@/lib/selection'
 
 export function useKeyboardNav({
   visibleReview,

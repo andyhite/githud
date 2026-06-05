@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { DigestPane } from './DigestPane'
+import { DigestPane } from './digest-pane'
 import type { DigestResult } from '@shared/types'
 
 describe('DigestPane', () => {
