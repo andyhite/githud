@@ -10,15 +10,10 @@ import { Chip } from './Chip'
 import { DiffSnippet } from './DiffSnippet'
 import { ExternalLink } from 'lucide-react'
 
-const SEVERITY_BORDER: Record<string, string> = {
-  blocker: 'border-l-sev-failure',
-  concern: 'border-l-sev-mention',
-  note: 'border-l-sev-info'
-}
-const SEVERITY_TONE: Record<string, 'failure' | 'mention' | 'info'> = {
-  blocker: 'failure',
-  concern: 'mention',
-  note: 'info'
+const SEVERITY_META: Record<string, { border: string; tone: 'failure' | 'mention' | 'info' }> = {
+  blocker: { border: 'border-l-sev-failure', tone: 'failure' },
+  concern: { border: 'border-l-sev-mention', tone: 'mention' },
+  note: { border: 'border-l-sev-info', tone: 'info' }
 }
 
 // The dashboard-only verdict chip (never posted) — a ballpark approve/not read.
@@ -187,13 +182,13 @@ export function ReviewPanel({ prId, prUrl, prTitle, onClose }: { prId: string; p
                     key={i}
                     className={cn(
                       'rounded-r-md border-l-[3px] bg-background p-4',
-                      SEVERITY_BORDER[f.severity] ?? 'border-l-border',
+                      SEVERITY_META[f.severity]?.border ?? 'border-l-border',
                       !f.include && 'opacity-50'
                     )}
                   >
                     <div className="mb-2.5 flex items-center gap-2 text-xs text-muted-foreground">
                       <Checkbox checked={f.include} onCheckedChange={(c) => patchFinding(i, { include: c === true })} aria-label="Include comment" />
-                      <Chip tone={SEVERITY_TONE[f.severity] ?? 'neutral'}>{f.severity}</Chip>
+                      <Chip tone={SEVERITY_META[f.severity]?.tone ?? 'neutral'}>{f.severity}</Chip>
                       <span>
                         → {f.file}:{f.resolvedLine} {f.resolvedSide === 'LEFT' ? '(old)' : ''}
                         {typeof f.snappedFrom === 'number' && <span className="text-sev-mention"> (snapped from :{f.snappedFrom})</span>}
@@ -215,7 +210,7 @@ export function ReviewPanel({ prId, prUrl, prTitle, onClose }: { prId: string; p
                 <ul className="grid gap-1.5">
                   {otherNotes.map((f, i) => (
                     <li key={i} className="flex gap-2 text-sm leading-relaxed">
-                      <Chip tone={SEVERITY_TONE[f.severity] ?? 'neutral'}>{f.severity}</Chip>
+                      <Chip tone={SEVERITY_META[f.severity]?.tone ?? 'neutral'}>{f.severity}</Chip>
                       <span className="text-card-foreground"><span className="text-muted-foreground">{f.file}</span> — {f.note}</span>
                     </li>
                   ))}

@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { DashboardSnapshot, DigestResult, FeedEvent } from '@shared/types'
-import { AI_MODEL } from './client'
+import { AI_MODEL, responseText } from './client'
 
 const SYSTEM = `You write a terse "while you were away" standup for an engineer's GitHub dashboard. Group by what needs action vs FYI. Be specific (repo #number, who did what). Markdown, no preamble, max ~8 bullets.`
 
@@ -28,8 +28,7 @@ export async function buildDigest(client: Anthropic, snap: DashboardSnapshot, no
     output_config: { effort: 'low' },
     messages: [{ role: 'user', content: `Dashboard state:\n${JSON.stringify(digestPayload(snap))}` }]
   } as any)
-  const textBlock = res.content.find((b: any) => b.type === 'text')
-  return { markdown: textBlock?.text ?? '', generatedAt: now, mode: 'full' }
+  return { markdown: responseText(res), generatedAt: now, mode: 'full' }
 }
 
 // Events newer than sinceAt. ISO-8601 strings of identical format compare
@@ -68,9 +67,8 @@ export async function buildDeltaDigest(
     output_config: { effort: 'low' },
     messages: [{ role: 'user', content: `Changes since the user was away:\n${JSON.stringify(payload)}` }]
   } as any)
-  const textBlock = res.content.find((b: any) => b.type === 'text')
   return {
-    markdown: textBlock?.text ?? '',
+    markdown: responseText(res),
     generatedAt: now,
     mode: 'delta',
     coveredSince: sinceAt,

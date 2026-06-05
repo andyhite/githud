@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { RiskLevel, TriageVerdict } from '@shared/types'
 import { PrDiff } from '../github/fetch-diff'
-import { AI_MODEL } from './client'
+import { AI_MODEL, responseText } from './client'
 import { sizeBucket } from '@shared/size'
 import { verdictLabel } from './verdict'
 
@@ -21,7 +21,7 @@ const SCHEMA = {
 export async function triagePr(
   client: Anthropic,
   prId: string,
-  headOid: string,
+  headKey: string,
   title: string,
   diff: PrDiff,
   now: string
@@ -35,10 +35,9 @@ export async function triagePr(
     output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
     messages: [{ role: 'user', content: userText }]
   } as any)
-  const textBlock = res.content.find((b: any) => b.type === 'text')
-  const parsed = JSON.parse(textBlock?.text ?? '{}') as { risk: RiskLevel; rationale: string; focusHint: string }
+  const parsed = JSON.parse(responseText(res) || '{}') as { risk: RiskLevel; rationale: string; focusHint: string }
   return {
-    prId, headOid, size, risk: parsed.risk,
+    prId, headKey, size, risk: parsed.risk,
     label: verdictLabel(size, parsed.risk),
     rationale: parsed.rationale, focusHint: parsed.focusHint,
     generatedAt: now

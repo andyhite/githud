@@ -145,6 +145,15 @@ body {
 *::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 *::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 
+/* Window-drag regions for the frameless macOS title bar (titleBarStyle: 'hidden').
+   The TopBar is `drag-region` so the window can be moved by it; interactive
+   controls inside it must be `no-drag` or they'd be swallowed by the drag area.
+   Inert on platforms that keep their native frame. */
+@layer utilities {
+  .drag-region { -webkit-app-region: drag; app-region: drag; }
+  .no-drag { -webkit-app-region: no-drag; app-region: no-drag; }
+}
+
 @layer components {
   .markdown { font-size: 0.8125rem; line-height: 1.6; color: var(--foreground); }
   .markdown > :first-child { margin-top: 0; }

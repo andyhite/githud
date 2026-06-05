@@ -98,14 +98,12 @@ export interface Settings {
   staleThresholdDays: number
   notificationsEnabled: boolean
   excludedAuthors: string[]
-  // M1: which event kinds fire a desktop notification (master switch is notificationsEnabled). Empty array = notify on nothing.
+  // Which event kinds fire a desktop notification (master switch is notificationsEnabled). Empty array = notify on nothing.
   notifyKinds: FeedEventKind[]
-  // M1: suppress notifications during this local-time window. null = always on. "HH:MM" 24h local; may wrap midnight (start > end).
+  // Suppress notifications during this local-time window. null = always on. "HH:MM" 24h local; may wrap midnight (start > end).
   quietHours: { start: string; end: string } | null
-  // M7: register the app as a macOS login item.
+  // Register the app as a macOS login item.
   launchAtLogin: boolean
-  // Charts: collapse state of the trend strip above the tables.
-  chartsCollapsed: boolean
   // Base auto-refresh cadence, in seconds (floor for the adaptive poll loop —
   // it only ever backs OFF from this as the API budget runs low). Min 30.
   refreshIntervalSeconds: number
@@ -135,7 +133,6 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyKinds: ['mention', 'changes_requested', 'ci_failed', 'changes_addressed', 'review_re_requested'],
   quietHours: null,
   launchAtLogin: false,
-  chartsCollapsed: false,
   refreshIntervalSeconds: 30,
   apiBudgetPercent: 80,
   teamLabels: [],
@@ -162,7 +159,7 @@ export type TriageLabel = 'quick_approve' | 'careful_read' | 'likely_changes' | 
 
 export interface TriageVerdict {
   prId: string
-  headOid: string
+  headKey: string // pr.updatedAt the verdict was generated against (cache identity)
   label: TriageLabel
   size: SizeBucket
   risk: RiskLevel
@@ -202,7 +199,7 @@ export type ReviewRecommendation = 'approve' | 'approve_with_nits' | 'request_ch
 
 export interface ReviewResult {
   prId: string
-  headOid: string
+  headKey: string // pr.updatedAt the review was generated against (cache identity)
   findings: ReviewFinding[]
   // `recommendation` + `assessment` are reviewer-facing notes shown ONLY in the
   // dashboard — the posted draft review carries the line-level findings and

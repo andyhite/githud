@@ -190,10 +190,9 @@ export function otherSearchQuery(ownerClause: string, labels: string[], team: st
   return parts.join(' ')
 }
 
-// How many results the team search pulls. Smaller than the 50 used for
-// needsReview/mine, but it's a single lean (TEAM_PR_FIELDS) alias now, so the
-// total cost stays well under GitHub's secondary-rate-limit (query-complexity)
-// ceiling.
+// How many results the team search pulls. Same 50 as needsReview/mine, but it's a
+// single lean (TEAM_PR_FIELDS) alias, so the total query cost stays well under
+// GitHub's secondary-rate-limit (query-complexity) ceiling.
 const TEAM_SEARCH_FIRST = 50
 
 // Build the dashboard query, optionally with the single team search alias.

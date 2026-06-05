@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { ReviewResult, ReviewFinding, ReviewRecommendation } from '@shared/types'
 import { PrDiff } from '../github/fetch-diff'
-import { AI_MODEL } from './client'
+import { AI_MODEL, responseText } from './client'
 
 const TASK = `You are reviewing a pull request diff to help the REVIEWER (the person reading this, not the PR author) decide whether to approve it. Produce three things:
 
@@ -47,7 +47,7 @@ export async function reviewPr(
   client: Anthropic,
   instructions: string,
   prId: string,
-  headOid: string,
+  headKey: string,
   title: string,
   diff: PrDiff,
   now: string
@@ -55,6 +55,8 @@ export async function reviewPr(
   const res: any = await client.messages.create({
     model: AI_MODEL,
     max_tokens: 4096,
+    // The review is the most analytically demanding call (triage/digest don't use
+    // thinking) — adaptive lets the model reason over the diff before committing.
     thinking: { type: 'adaptive' },
     system: [
       { type: 'text', text: instructions, cache_control: { type: 'ephemeral' } },
@@ -63,15 +65,14 @@ export async function reviewPr(
     output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
     messages: [{ role: 'user', content: `PR: ${title}\n\nDiff${diff.truncated ? ' (truncated)' : ''}:\n${diff.patch}` }]
   } as any)
-  const textBlock = res.content.find((b: any) => b.type === 'text')
-  const parsed = JSON.parse(textBlock?.text ?? '{}') as {
+  const parsed = JSON.parse(responseText(res) || '{}') as {
     recommendation?: ReviewRecommendation
     assessment?: string
     findings?: ReviewFinding[]
   }
   return {
     prId,
-    headOid,
+    headKey,
     recommendation: parsed.recommendation ?? 'needs_discussion',
     assessment: parsed.assessment ?? '',
     findings: parsed.findings ?? [],

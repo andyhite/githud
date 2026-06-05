@@ -108,6 +108,17 @@ function createWindow(): void {
     minWidth: 440,
     minHeight: 520,
     title: 'githud',
+    // Matches the dark --card/--background token so the window (and the title-bar
+    // strip on macOS) doesn't flash white before the dark-by-default UI paints.
+    backgroundColor: '#1d1f21',
+    // macOS: drop the native title-bar chrome but keep the traffic lights, so the
+    // app's own TopBar reads as the title bar (it's marked drag-region). The lights
+    // are nudged down to sit centered in the ~52px TopBar. Other platforms keep
+    // their native frame. trafficLightPosition.y is the one knob to tweak if the
+    // lights look high/low against the bar.
+    ...(process.platform === 'darwin'
+      ? ({ titleBarStyle: 'hidden', trafficLightPosition: { x: 16, y: 18 } } as const)
+      : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,

@@ -28,5 +28,5 @@ export function useKeyboardNav({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [visibleReview, selected])
+  }, [visibleReview, selected, setSelected, onHide, onOpenPalette])
 }

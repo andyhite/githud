@@ -1,16 +1,11 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { writeFileSync } from 'fs'
 import { settingsFilePath } from './paths'
+import { readJsonFile } from './json-file'
 import { Settings, DEFAULT_SETTINGS } from '@shared/types'
 
 export function loadSettings(): Settings {
-  const path = settingsFilePath()
-  if (!existsSync(path)) return { ...DEFAULT_SETTINGS }
-  try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8'))
-    return { ...DEFAULT_SETTINGS, ...parsed }
-  } catch {
-    return { ...DEFAULT_SETTINGS }
-  }
+  const parsed = readJsonFile<Partial<Settings>>(settingsFilePath(), {})
+  return { ...DEFAULT_SETTINGS, ...parsed }
 }
 
 export function saveSettings(settings: Settings): Settings {

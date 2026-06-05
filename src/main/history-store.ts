@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { writeFileSync } from 'fs'
 import { DailyMetric } from '@shared/types'
 import { historyFilePath } from './paths'
+import { readJsonFile } from './json-file'
 
 const RETENTION_DAYS = 90
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -48,13 +49,7 @@ export function pruneOlderThan(metrics: DailyMetric[], cutoff: string): DailyMet
 // --- fs-backed store (glue) ---
 
 export function loadHistory(): DailyMetric[] {
-  const path = historyFilePath()
-  if (!existsSync(path)) return []
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as DailyMetric[]
-  } catch {
-    return []
-  }
+  return readJsonFile<DailyMetric[]>(historyFilePath(), [])
 }
 
 function save(metrics: DailyMetric[]): DailyMetric[] {

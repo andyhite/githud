@@ -10,6 +10,10 @@ import { relativeAge } from './pr-cells'
 // Data older than ~2x the 30s poll interval is treated as stale.
 const STALE_MS = 90_000
 
+// On macOS the window is frameless (titleBarStyle: 'hidden'), so the TopBar must
+// leave room on the left for the traffic lights. Elsewhere the native frame stays.
+const isMac = typeof window !== 'undefined' && window.platform === 'darwin'
+
 export function TopBar({
   snapshot,
   onRefresh,
@@ -83,13 +87,20 @@ export function TopBar({
     : `Refresh now · auto-refreshes every ${formatInterval(pollMs)}`
 
   return (
-    <header className="flex items-center gap-3 border-b bg-card px-3.5 py-2">
+    <header
+      className={cn(
+        'drag-region flex select-none items-center gap-3 border-b bg-card py-2 pr-3.5',
+        // Clear the traffic lights on macOS; standard left padding otherwise.
+        isMac ? 'pl-[5.25rem]' : 'pl-3.5'
+      )}
+    >
       <span className="font-bold text-card-foreground">githud</span>
       {status}
       <span className="flex-1" />
       <Button
         variant="ghost"
         size="sm"
+        className="no-drag"
         onClick={onRefresh}
         disabled={isFetching}
         aria-label="Refresh"
@@ -101,12 +112,13 @@ export function TopBar({
       <Button
         variant="ghost"
         size="icon"
+        className="no-drag"
         aria-label="Toggle theme"
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       >
         {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
-      <Button variant="ghost" size="icon" onClick={onOpenSettings} aria-label="Settings" title="Settings">
+      <Button variant="ghost" size="icon" className="no-drag" onClick={onOpenSettings} aria-label="Settings" title="Settings">
         <Settings className="h-4 w-4" />
       </Button>
     </header>

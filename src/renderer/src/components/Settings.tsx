@@ -77,7 +77,7 @@ function SettingsGroup({
     <section className="grid gap-4">
       <div className="grid gap-1 border-b pb-2">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
-        {hint && <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>}
+        {hint && <p className={fieldHelp}>{hint}</p>}
       </div>
       {children}
     </section>

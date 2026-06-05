@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { writeFileSync } from 'fs'
 import { hiddenFilePath } from './paths'
+import { readJsonFile } from './json-file'
 
 export interface HiddenPr {
   id: string
@@ -44,13 +45,7 @@ export function applySnooze(hidden: HiddenPr[], id: string, updatedAt: string, u
 // --- fs-backed store (glue) ---
 
 export function loadHidden(): HiddenPr[] {
-  const path = hiddenFilePath()
-  if (!existsSync(path)) return []
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as HiddenPr[]
-  } catch {
-    return []
-  }
+  return readJsonFile<HiddenPr[]>(hiddenFilePath(), [])
 }
 
 export function saveHidden(hidden: HiddenPr[]): HiddenPr[] {

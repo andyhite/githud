@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { writeFileSync } from 'fs'
 import { FeedEvent } from '@shared/types'
 import { PRState } from './github/pr-state'
 import { eventsFilePath, prStateFilePath } from './paths'
+import { readJsonFile } from './json-file'
 
 const CAP = 100
 
@@ -28,13 +29,7 @@ export function applyReadAll(events: FeedEvent[]): FeedEvent[] {
 // --- fs-backed store (glue) ---
 
 export function loadEvents(): FeedEvent[] {
-  const path = eventsFilePath()
-  if (!existsSync(path)) return []
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as FeedEvent[]
-  } catch {
-    return []
-  }
+  return readJsonFile<FeedEvent[]>(eventsFilePath(), [])
 }
 
 function save(events: FeedEvent[]): FeedEvent[] {
@@ -56,13 +51,7 @@ export function markAllRead(): FeedEvent[] {
 
 // Prior PR state for diffing. `null` means "no baseline yet" (first run).
 export function loadPrState(): PRState[] | null {
-  const path = prStateFilePath()
-  if (!existsSync(path)) return null
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as PRState[]
-  } catch {
-    return null
-  }
+  return readJsonFile<PRState[] | null>(prStateFilePath(), null)
 }
 
 export function savePrState(states: PRState[]): void {

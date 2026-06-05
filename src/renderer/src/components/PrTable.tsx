@@ -1,3 +1,4 @@
+import { ReactNode } from 'react'
 import { PullRequest, TriageVerdict } from '@shared/types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AgeCell, PrTitleCell, ReviewersCell, DiffStat, StatusCell, TriageChip } from './pr-cells'
@@ -111,19 +112,12 @@ export function PrTable({
     reviewers: 'Waiting on',
     age: 'Age'
   }
-  const cellFor = (c: PrColumn, pr: PullRequest) => {
-    switch (c) {
-      case 'diff':
-        return <DiffStat pr={pr} />
-      case 'status':
-        return <StatusCell pr={pr} />
-      case 'triage':
-        return <TriageChip verdict={verdicts?.[pr.id]} />
-      case 'reviewers':
-        return <ReviewersCell pr={pr} />
-      case 'age':
-        return <AgeCell pr={pr} />
-    }
+  const cellFor: Record<PrColumn, (pr: PullRequest) => ReactNode> = {
+    diff: (pr) => <DiffStat pr={pr} />,
+    status: (pr) => <StatusCell pr={pr} />,
+    triage: (pr) => <TriageChip verdict={verdicts?.[pr.id]} />,
+    reviewers: (pr) => <ReviewersCell pr={pr} />,
+    age: (pr) => <AgeCell pr={pr} />
   }
   // Fixed per-column widths (with table-fixed below) so any two PR tables sharing
   // a column set — e.g. Team PRs and My PRs — line up, instead of each table
@@ -149,7 +143,7 @@ export function PrTable({
       </TableCell>
       {columns.map((c) => (
         <TableCell key={c} className={cn(COL_WIDTH[c], nowrap(c) && 'whitespace-nowrap')}>
-          {cellFor(c, pr)}
+          {cellFor[c](pr)}
         </TableCell>
       ))}
       <TableCell className="w-14 text-right">{actions(pr, isHidden)}</TableCell>

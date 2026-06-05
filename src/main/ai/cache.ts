@@ -1,33 +1,23 @@
-import { existsSync, readFileSync, writeFileSync, rmSync } from 'fs'
+import { writeFileSync, existsSync, rmSync } from 'fs'
 import { aiCacheFilePath } from '../paths'
+import { readJsonFile } from '../json-file'
 
 export type CacheKind = 'triage' | 'review'
 
-export function cacheKey(kind: CacheKind, prId: string, headOid: string): string {
-  return `${kind}:${prId}:${headOid}`
+// `headKey` is pr.updatedAt — it advances on new commits, so a cache entry
+// auto-invalidates when the PR changes.
+export function cacheKey(kind: CacheKind, prId: string, headKey: string): string {
+  return `${kind}:${prId}:${headKey}`
 }
 
-// --- pure helpers (unit-tested) ---
-export function readEntry<T>(store: Record<string, unknown>, key: string): T | null {
-  return (store[key] as T) ?? null
-}
-export function writeEntry(store: Record<string, unknown>, key: string, value: unknown): void {
-  store[key] = value
-}
-
-// --- fs-backed store (glue) ---
 export function loadCache(): Record<string, unknown> {
-  const path = aiCacheFilePath()
-  if (!existsSync(path)) return {}
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'))
-  } catch {
-    return {}
-  }
+  return readJsonFile<Record<string, unknown>>(aiCacheFilePath(), {})
 }
+
 export function saveCache(store: Record<string, unknown>): void {
   writeFileSync(aiCacheFilePath(), JSON.stringify(store))
 }
+
 export function clearCache(): void {
   const path = aiCacheFilePath()
   if (existsSync(path)) rmSync(path, { force: true })
