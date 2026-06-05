@@ -30,6 +30,7 @@
     "package": "electron-vite build && electron-builder",
     "package:dir": "electron-vite build && electron-builder --dir",
     "icon": "bash build/make-icon.sh",
+    "release": "bash scripts/release.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json"
