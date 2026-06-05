@@ -70,13 +70,14 @@ refresh and window-focus also trigger a poll).
 ## Building a distributable
 
 ```bash
-pnpm run build        # compile main/preload/renderer into out/
-pnpm run package      # produce installers for the current platform into dist/
-pnpm run package:dir  # unpacked app dir (faster, for local testing)
+pnpm run build         # compile main/preload/renderer into out/
+pnpm run package       # produce installers for the current platform into dist/
+pnpm run package:dir   # unpacked app dir (faster, for local testing)
+pnpm run package:signed # macOS: build + sign with a stable local identity (see below)
 ```
 
 `electron-builder` is configured for macOS (`dmg`/`zip`), Windows (`nsis`), and
-Linux (`AppImage`). Builds are **unsigned**, so:
+Linux (`AppImage`). The default `package` is **unsigned**, so:
 
 - **macOS** — first open needs **right-click → Open** (or *System Settings → Privacy
   & Security → Open Anyway*) to clear Gatekeeper.
@@ -84,6 +85,31 @@ Linux (`AppImage`). Builds are **unsigned**, so:
 
 CI builds and attaches release artifacts on tagged releases — see
 [`.github/workflows`](.github/workflows).
+
+### Stable local signing (macOS)
+
+githud encrypts your secrets with Electron `safeStorage`, which guards them behind
+a Keychain ACL bound to the app's **code signature**. An unsigned/ad-hoc build
+gets a fresh signature each time you rebuild, so macOS treats every new build as a
+new program and **re-prompts for your password** to reach the stored token/key.
+Signing each build with the *same* identity makes the signature stable and stops
+the re-prompt.
+
+You don't need an Apple Developer account — a one-time self-signed certificate is
+enough for one machine:
+
+```bash
+pnpm run signing:cert    # create the "githud Local Signing" identity (one-time)
+pnpm run package:signed  # build + sign with it
+```
+
+`signing:cert` shows one macOS prompt to trust the new certificate, and the first
+signed build may ask once to let `codesign` use the key — click **Always Allow**.
+Both are stable: the identity persists, so later `package:signed` builds (and the
+running app) won't prompt again. This is a **local convenience only** — a
+self-signed cert is not a Developer ID and does not notarize or clear Gatekeeper
+for distribution. (Set `GITHUD_SIGNING_IDENTITY` to a different name to reuse an
+existing identity, e.g. a real `Developer ID Application: …` if you have one.)
 
 ## Configuration
 

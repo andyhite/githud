@@ -166,7 +166,14 @@ a body: it creates the review with no `event` and no body, so it stays a draft
 the user finishes & submits on github.com. The AI `recommendation`/`assessment`
 and any un-anchored findings are dashboard-only and never leave the app.
 Generation and starting the draft are on-demand only (never on the poll loop).
-Still deferred (don't add without a reason): per-repo watch lists, GitHub
-Enterprise / multi-account, assigned-issues panel, auto-update / code signing.
+Local macOS code signing exists for one reason: `safeStorage`'s Keychain ACL is
+bound to the app's signature, so unsigned/ad-hoc rebuilds re-prompt for the
+password. `build/make-signing-cert.sh` (`pnpm run signing:cert`) makes a stable
+self-signed identity and `pnpm run package:signed` signs with it (via
+`CSC_NAME`/`CSC_IDENTITY_AUTO_DISCOVERY=false` — kept OUT of the shared
+`build` config so CI's plain `electron-builder` stays unsigned). Still deferred
+(don't add without a reason): per-repo watch lists, GitHub Enterprise /
+multi-account, assigned-issues panel, auto-update; distribution signing /
+notarization (Developer ID, Gatekeeper) beyond the local self-signed convenience.
 AI backlog: an in-place key-rotation UI (removal already exists), and secondary helpers (thread
 TL;DR, mention triage, standup generator).

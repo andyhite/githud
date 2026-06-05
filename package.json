@@ -29,6 +29,8 @@
     "start": "electron-vite preview",
     "package": "electron-vite build && electron-builder",
     "package:dir": "electron-vite build && electron-builder --dir",
+    "package:signed": "electron-vite build && CSC_IDENTITY_AUTO_DISCOVERY=false CSC_NAME=\"${GITHUD_SIGNING_IDENTITY:-githud Local Signing}\" electron-builder",
+    "signing:cert": "bash build/make-signing-cert.sh",
     "icon": "bash build/make-icon.sh",
     "release": "bash scripts/release.sh",
     "test": "vitest run",
